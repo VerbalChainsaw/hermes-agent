@@ -1322,7 +1322,41 @@ class PluginManager:
             # Bundled platform plugins (gateway adapters like IRC) auto-load
             # for the same reason: every platform Hermes ships must be
             # available out of the box without the user having to opt in.
+            #
+            # EXCEPTION — bundled platforms respect ``plugins.disabled`` too.
+            # Auto-loading every shipped platform adapter eagerly imports
+            # each plugin's third-party SDK at startup (e.g. lark_oapi for
+            # feishu, microsoft_teams for teams). On a CLI-only install that
+            # costs 6-13s of dead import time per REPL start, plus noisy
+            # deprecation warnings from those SDKs. The user's disable
+            # intent already wins for non-bundled plugins (see the check
+            # above); honouring it here makes startup proportional to the
+            # platforms actually in use.
+            #
+            # Match the disable list permissively: accept the manifest's
+            # full key (``feishu-platform``), the bare manifest name, AND
+            # any common suffix variants users naturally type (``feishu``,
+            # ``teams``, ``telegram``). Strips ``-platform``, ``_platform``,
+            # and ``-adapter`` so a user who writes ``feishu`` in
+            # ``plugins.disabled`` actually disables the bundled adapter
+            # whose key is ``feishu-platform``.
             if manifest.source == "bundled" and manifest.kind in {"backend", "platform"}:
+                _strip_suffixes = ("-platform", "_platform", "-adapter", "_adapter")
+                _candidate_names = {lookup_key, manifest.name}
+                for _nm in (lookup_key, manifest.name):
+                    for _suf in _strip_suffixes:
+                        if _nm.endswith(_suf):
+                            _candidate_names.add(_nm[: -len(_suf)])
+                if _candidate_names & disabled:
+                    loaded = LoadedPlugin(manifest=manifest, enabled=False)
+                    loaded.error = "disabled via config"
+                    self._plugins[lookup_key] = loaded
+                    logger.debug(
+                        "Skipping bundled platform '%s' (disabled via config; matched on %s)",
+                        lookup_key,
+                        sorted(_candidate_names & disabled),
+                    )
+                    continue
                 self._load_plugin(manifest)
                 continue
 
