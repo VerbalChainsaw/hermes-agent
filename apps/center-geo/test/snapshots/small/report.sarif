@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "center-geo",
+          "version": "0.1.0",
+          "informationUri": "https://github.com/center-geo",
+          "rules": [
+            {
+              "id": "radial/high_fan_out",
+              "name": "high_fan_out",
+              "shortDescription": {
+                "text": "high_fan_out (radial)"
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              }
+            },
+            {
+              "id": "anomaly/fan_out_anomaly",
+              "name": "fan_out_anomaly",
+              "shortDescription": {
+                "text": "fan_out_anomaly (anomaly)"
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "radial/high_fan_out",
+          "level": "error",
+          "message": {
+            "text": "Fused score 1.25 from 2 signal(s) across 2 geometries."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/f9.ts"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 1.25,
+            "geometries": [
+              "anomaly",
+              "radial"
+            ],
+            "edgeKinds": [
+              "<anomaly>",
+              "<radial>"
+            ],
+            "signalCount": 2
+          }
+        },
+        {
+          "ruleId": "anomaly/fan_out_anomaly",
+          "level": "error",
+          "message": {
+            "text": "Fused score 0.00 from 1 signal(s) across 1 geometries."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/f2.ts"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0,
+            "geometries": [
+              "anomaly"
+            ],
+            "edgeKinds": [
+              "<anomaly>"
+            ],
+            "signalCount": 1
+          }
+        },
+        {
+          "ruleId": "anomaly/fan_out_anomaly",
+          "level": "error",
+          "message": {
+            "text": "Fused score 0.00 from 1 signal(s) across 1 geometries."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/f4.ts"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0,
+            "geometries": [
+              "anomaly"
+            ],
+            "edgeKinds": [
+              "<anomaly>"
+            ],
+            "signalCount": 1
+          }
+        },
+        {
+          "ruleId": "anomaly/fan_out_anomaly",
+          "level": "error",
+          "message": {
+            "text": "Fused score 0.00 from 1 signal(s) across 1 geometries."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/f7.ts"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0,
+            "geometries": [
+              "anomaly"
+            ],
+            "edgeKinds": [
+              "<anomaly>"
+            ],
+            "signalCount": 1
+          }
+        },
+        {
+          "ruleId": "anomaly/fan_out_anomaly",
+          "level": "error",
+          "message": {
+            "text": "Fused score 0.00 from 1 signal(s) across 1 geometries."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/f8.ts"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0,
+            "geometries": [
+              "anomaly"
+            ],
+            "edgeKinds": [
+              "<anomaly>"
+            ],
+            "signalCount": 1
+          }
+        },
+        {
+          "ruleId": "anomaly/fan_out_anomaly",
+          "level": "error",
+          "message": {
+            "text": "Fused score 0.00 from 1 signal(s) across 1 geometries."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/f5.ts"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0,
+            "geometries": [
+              "anomaly"
+            ],
+            "edgeKinds": [
+              "<anomaly>"
+            ],
+            "signalCount": 1
+          }
+        },
+        {
+          "ruleId": "anomaly/fan_out_anomaly",
+          "level": "error",
+          "message": {
+            "text": "Fused score 0.00 from 1 signal(s) across 1 geometries."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/f1.ts"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0,
+            "geometries": [
+              "anomaly"
+            ],
+            "edgeKinds": [
+              "<anomaly>"
+            ],
+            "signalCount": 1
+          }
+        },
+        {
+          "ruleId": "anomaly/fan_out_anomaly",
+          "level": "error",
+          "message": {
+            "text": "Fused score 0.00 from 1 signal(s) across 1 geometries."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/f0.ts"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "score": 0,
+            "geometries": [
+              "anomaly"
+            ],
+            "edgeKinds": [
+              "<anomaly>"
+            ],
+            "signalCount": 1
+          }
+        }
+      ]
+    }
+  ]
+}

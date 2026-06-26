@@ -1,0 +1,495 @@
+{
+  "schema_version": "1.0.0",
+  "count": 8,
+  "raw_signal_count": 9,
+  "hypotheses": [
+    {
+      "id": "f:154229c70396fe23",
+      "targetId": "file:b37fc6133ea25705",
+      "targetKind": "node",
+      "score": 1.25,
+      "maxSeverity": "critical",
+      "geometries": [
+        "anomaly",
+        "radial"
+      ],
+      "edgeKinds": [
+        "<anomaly>",
+        "<radial>"
+      ],
+      "contributors": [
+        {
+          "id": "s:radial:high_fan_out:file:b37fc6133ea25705:6e7332ae6297d602",
+          "geometryId": "radial",
+          "type": "high_fan_out",
+          "targetKind": "node",
+          "targetId": "file:b37fc6133ea25705",
+          "anchors": [
+            {
+              "path": "src/f9.ts",
+              "source": "source"
+            }
+          ],
+          "severityHint": "medium",
+          "confidenceHint": "medium",
+          "metrics": {
+            "filteredFanOut": 9
+          },
+          "metadata": {
+            "allowedEdgeKinds": [
+              "import",
+              "call",
+              "reference",
+              "state_write"
+            ]
+          },
+          "limitations": [
+            "filtered fan-out threshold (8) is a placeholder; T12+ replaces with config-driven percentile",
+            "does not weight edges by confidence; counts allowed-kind edges only"
+          ]
+        },
+        {
+          "id": "s:anomaly:fan_out_anomaly:file:b37fc6133ea25705:c359de384f807b2e",
+          "geometryId": "anomaly",
+          "type": "fan_out_anomaly",
+          "targetKind": "node",
+          "targetId": "file:b37fc6133ea25705",
+          "anchors": [
+            {
+              "path": "src/f9.ts",
+              "source": "source"
+            }
+          ],
+          "severityHint": "critical",
+          "confidenceHint": "medium",
+          "metrics": {
+            "count": 9,
+            "threshold": 0,
+            "ratioTimesHundred": null
+          },
+          "metadata": {
+            "metric": "outbound_edges",
+            "observedCount": 9,
+            "thresholdCount": 0,
+            "ratio": null
+          },
+          "limitations": [
+            "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+            "false positives expected on purpose-built hubs (barrel files, index.ts)",
+            "severity scale is heuristic; not calibrated against historical defect rates",
+            "static analysis only — runtime metrics (call frequency, response time) are not measured"
+          ]
+        }
+      ],
+      "components": {
+        "geometryBonus": 0.5,
+        "independenceBonus": 0.75,
+        "boundaryBonus": 0,
+        "stateBonus": 0,
+        "cycleBonus": 0,
+        "testGapBonus": 0,
+        "contradictionPenalty": 0,
+        "capabilityGapPenalty": 0
+      }
+    },
+    {
+      "id": "f:1b9b50a8a5ab3ed6",
+      "targetId": "file:0f54371f19fd5a12",
+      "targetKind": "node",
+      "score": 0,
+      "maxSeverity": "critical",
+      "geometries": [
+        "anomaly"
+      ],
+      "edgeKinds": [
+        "<anomaly>"
+      ],
+      "contributors": [
+        {
+          "id": "s:anomaly:fan_out_anomaly:file:0f54371f19fd5a12:bf06f059a347837e",
+          "geometryId": "anomaly",
+          "type": "fan_out_anomaly",
+          "targetKind": "node",
+          "targetId": "file:0f54371f19fd5a12",
+          "anchors": [
+            {
+              "path": "src/f2.ts",
+              "source": "source"
+            }
+          ],
+          "severityHint": "critical",
+          "confidenceHint": "medium",
+          "metrics": {
+            "count": 1,
+            "threshold": 0,
+            "ratioTimesHundred": null
+          },
+          "metadata": {
+            "metric": "outbound_edges",
+            "observedCount": 1,
+            "thresholdCount": 0,
+            "ratio": null
+          },
+          "limitations": [
+            "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+            "false positives expected on purpose-built hubs (barrel files, index.ts)",
+            "severity scale is heuristic; not calibrated against historical defect rates",
+            "static analysis only — runtime metrics (call frequency, response time) are not measured"
+          ]
+        }
+      ],
+      "components": {
+        "geometryBonus": 0,
+        "independenceBonus": 0,
+        "boundaryBonus": 0,
+        "stateBonus": 0,
+        "cycleBonus": 0,
+        "testGapBonus": 0,
+        "contradictionPenalty": 0,
+        "capabilityGapPenalty": 0
+      }
+    },
+    {
+      "id": "f:a0fc722d945e2f0a",
+      "targetId": "file:106dd9949759b4c6",
+      "targetKind": "node",
+      "score": 0,
+      "maxSeverity": "critical",
+      "geometries": [
+        "anomaly"
+      ],
+      "edgeKinds": [
+        "<anomaly>"
+      ],
+      "contributors": [
+        {
+          "id": "s:anomaly:fan_out_anomaly:file:106dd9949759b4c6:4531ac70d0022237",
+          "geometryId": "anomaly",
+          "type": "fan_out_anomaly",
+          "targetKind": "node",
+          "targetId": "file:106dd9949759b4c6",
+          "anchors": [
+            {
+              "path": "src/f4.ts",
+              "source": "source"
+            }
+          ],
+          "severityHint": "critical",
+          "confidenceHint": "medium",
+          "metrics": {
+            "count": 1,
+            "threshold": 0,
+            "ratioTimesHundred": null
+          },
+          "metadata": {
+            "metric": "outbound_edges",
+            "observedCount": 1,
+            "thresholdCount": 0,
+            "ratio": null
+          },
+          "limitations": [
+            "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+            "false positives expected on purpose-built hubs (barrel files, index.ts)",
+            "severity scale is heuristic; not calibrated against historical defect rates",
+            "static analysis only — runtime metrics (call frequency, response time) are not measured"
+          ]
+        }
+      ],
+      "components": {
+        "geometryBonus": 0,
+        "independenceBonus": 0,
+        "boundaryBonus": 0,
+        "stateBonus": 0,
+        "cycleBonus": 0,
+        "testGapBonus": 0,
+        "contradictionPenalty": 0,
+        "capabilityGapPenalty": 0
+      }
+    },
+    {
+      "id": "f:2382fcea2f7c5b15",
+      "targetId": "file:39250c1ce7a64716",
+      "targetKind": "node",
+      "score": 0,
+      "maxSeverity": "critical",
+      "geometries": [
+        "anomaly"
+      ],
+      "edgeKinds": [
+        "<anomaly>"
+      ],
+      "contributors": [
+        {
+          "id": "s:anomaly:fan_out_anomaly:file:39250c1ce7a64716:91040a5ce1d83731",
+          "geometryId": "anomaly",
+          "type": "fan_out_anomaly",
+          "targetKind": "node",
+          "targetId": "file:39250c1ce7a64716",
+          "anchors": [
+            {
+              "path": "src/f7.ts",
+              "source": "source"
+            }
+          ],
+          "severityHint": "critical",
+          "confidenceHint": "medium",
+          "metrics": {
+            "count": 1,
+            "threshold": 0,
+            "ratioTimesHundred": null
+          },
+          "metadata": {
+            "metric": "outbound_edges",
+            "observedCount": 1,
+            "thresholdCount": 0,
+            "ratio": null
+          },
+          "limitations": [
+            "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+            "false positives expected on purpose-built hubs (barrel files, index.ts)",
+            "severity scale is heuristic; not calibrated against historical defect rates",
+            "static analysis only — runtime metrics (call frequency, response time) are not measured"
+          ]
+        }
+      ],
+      "components": {
+        "geometryBonus": 0,
+        "independenceBonus": 0,
+        "boundaryBonus": 0,
+        "stateBonus": 0,
+        "cycleBonus": 0,
+        "testGapBonus": 0,
+        "contradictionPenalty": 0,
+        "capabilityGapPenalty": 0
+      }
+    },
+    {
+      "id": "f:77e25c7eae11e626",
+      "targetId": "file:79c9bc7180e0dd77",
+      "targetKind": "node",
+      "score": 0,
+      "maxSeverity": "critical",
+      "geometries": [
+        "anomaly"
+      ],
+      "edgeKinds": [
+        "<anomaly>"
+      ],
+      "contributors": [
+        {
+          "id": "s:anomaly:fan_out_anomaly:file:79c9bc7180e0dd77:6d8fdcd0aade11bb",
+          "geometryId": "anomaly",
+          "type": "fan_out_anomaly",
+          "targetKind": "node",
+          "targetId": "file:79c9bc7180e0dd77",
+          "anchors": [
+            {
+              "path": "src/f8.ts",
+              "source": "source"
+            }
+          ],
+          "severityHint": "critical",
+          "confidenceHint": "medium",
+          "metrics": {
+            "count": 2,
+            "threshold": 0,
+            "ratioTimesHundred": null
+          },
+          "metadata": {
+            "metric": "outbound_edges",
+            "observedCount": 2,
+            "thresholdCount": 0,
+            "ratio": null
+          },
+          "limitations": [
+            "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+            "false positives expected on purpose-built hubs (barrel files, index.ts)",
+            "severity scale is heuristic; not calibrated against historical defect rates",
+            "static analysis only — runtime metrics (call frequency, response time) are not measured"
+          ]
+        }
+      ],
+      "components": {
+        "geometryBonus": 0,
+        "independenceBonus": 0,
+        "boundaryBonus": 0,
+        "stateBonus": 0,
+        "cycleBonus": 0,
+        "testGapBonus": 0,
+        "contradictionPenalty": 0,
+        "capabilityGapPenalty": 0
+      }
+    },
+    {
+      "id": "f:31caaf692c0903f4",
+      "targetId": "file:95162c5c019186e0",
+      "targetKind": "node",
+      "score": 0,
+      "maxSeverity": "critical",
+      "geometries": [
+        "anomaly"
+      ],
+      "edgeKinds": [
+        "<anomaly>"
+      ],
+      "contributors": [
+        {
+          "id": "s:anomaly:fan_out_anomaly:file:95162c5c019186e0:c854519274b07087",
+          "geometryId": "anomaly",
+          "type": "fan_out_anomaly",
+          "targetKind": "node",
+          "targetId": "file:95162c5c019186e0",
+          "anchors": [
+            {
+              "path": "src/f5.ts",
+              "source": "source"
+            }
+          ],
+          "severityHint": "critical",
+          "confidenceHint": "medium",
+          "metrics": {
+            "count": 2,
+            "threshold": 0,
+            "ratioTimesHundred": null
+          },
+          "metadata": {
+            "metric": "outbound_edges",
+            "observedCount": 2,
+            "thresholdCount": 0,
+            "ratio": null
+          },
+          "limitations": [
+            "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+            "false positives expected on purpose-built hubs (barrel files, index.ts)",
+            "severity scale is heuristic; not calibrated against historical defect rates",
+            "static analysis only — runtime metrics (call frequency, response time) are not measured"
+          ]
+        }
+      ],
+      "components": {
+        "geometryBonus": 0,
+        "independenceBonus": 0,
+        "boundaryBonus": 0,
+        "stateBonus": 0,
+        "cycleBonus": 0,
+        "testGapBonus": 0,
+        "contradictionPenalty": 0,
+        "capabilityGapPenalty": 0
+      }
+    },
+    {
+      "id": "f:5d37f35c7795f93d",
+      "targetId": "file:a98805ce14972512",
+      "targetKind": "node",
+      "score": 0,
+      "maxSeverity": "critical",
+      "geometries": [
+        "anomaly"
+      ],
+      "edgeKinds": [
+        "<anomaly>"
+      ],
+      "contributors": [
+        {
+          "id": "s:anomaly:fan_out_anomaly:file:a98805ce14972512:3a8806ba9f7b86e3",
+          "geometryId": "anomaly",
+          "type": "fan_out_anomaly",
+          "targetKind": "node",
+          "targetId": "file:a98805ce14972512",
+          "anchors": [
+            {
+              "path": "src/f1.ts",
+              "source": "source"
+            }
+          ],
+          "severityHint": "critical",
+          "confidenceHint": "medium",
+          "metrics": {
+            "count": 1,
+            "threshold": 0,
+            "ratioTimesHundred": null
+          },
+          "metadata": {
+            "metric": "outbound_edges",
+            "observedCount": 1,
+            "thresholdCount": 0,
+            "ratio": null
+          },
+          "limitations": [
+            "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+            "false positives expected on purpose-built hubs (barrel files, index.ts)",
+            "severity scale is heuristic; not calibrated against historical defect rates",
+            "static analysis only — runtime metrics (call frequency, response time) are not measured"
+          ]
+        }
+      ],
+      "components": {
+        "geometryBonus": 0,
+        "independenceBonus": 0,
+        "boundaryBonus": 0,
+        "stateBonus": 0,
+        "cycleBonus": 0,
+        "testGapBonus": 0,
+        "contradictionPenalty": 0,
+        "capabilityGapPenalty": 0
+      }
+    },
+    {
+      "id": "f:6649db01b3687a93",
+      "targetId": "file:be335e4e2e96bea0",
+      "targetKind": "node",
+      "score": 0,
+      "maxSeverity": "critical",
+      "geometries": [
+        "anomaly"
+      ],
+      "edgeKinds": [
+        "<anomaly>"
+      ],
+      "contributors": [
+        {
+          "id": "s:anomaly:fan_out_anomaly:file:be335e4e2e96bea0:f550cd2ab7d494ad",
+          "geometryId": "anomaly",
+          "type": "fan_out_anomaly",
+          "targetKind": "node",
+          "targetId": "file:be335e4e2e96bea0",
+          "anchors": [
+            {
+              "path": "src/f0.ts",
+              "source": "source"
+            }
+          ],
+          "severityHint": "critical",
+          "confidenceHint": "medium",
+          "metrics": {
+            "count": 2,
+            "threshold": 0,
+            "ratioTimesHundred": null
+          },
+          "metadata": {
+            "metric": "outbound_edges",
+            "observedCount": 2,
+            "thresholdCount": 0,
+            "ratio": null
+          },
+          "limitations": [
+            "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+            "false positives expected on purpose-built hubs (barrel files, index.ts)",
+            "severity scale is heuristic; not calibrated against historical defect rates",
+            "static analysis only — runtime metrics (call frequency, response time) are not measured"
+          ]
+        }
+      ],
+      "components": {
+        "geometryBonus": 0,
+        "independenceBonus": 0,
+        "boundaryBonus": 0,
+        "stateBonus": 0,
+        "cycleBonus": 0,
+        "testGapBonus": 0,
+        "contradictionPenalty": 0,
+        "capabilityGapPenalty": 0
+      }
+    }
+  ]
+}
