@@ -25,6 +25,7 @@ import { parseFile } from "../adapters/ts/index.js";
 import { GraphStore } from "../graph/index.js";
 import { runRadialEngine, SEVERITY_RANK } from "../engines/radial/index.js";
 import { runCycleEngine } from "../engines/cycle/index.js";
+import { runBoundaryEngine } from "../engines/boundary/index.js";
 
 // Tool name — single source of truth. Mirrors the bin field in package.json
 // and the exports map key.
@@ -172,10 +173,10 @@ function stubSubcommand(
       };
       const store = new GraphStore(snapshot);
 
-      // 4. Run the radial (T09) and cycle (T10) engines over the same graph.
-      // Both engines are pure (same input -> same output) and read-only.
-      // Future engines (boundary T11, anomaly T12, convergent T13) will
-      // run here too.
+      // 4. Run the radial (T09), cycle (T10), and boundary (T11)
+      // engines over the same graph. All three are pure / read-only /
+      // deterministic. Future engines (anomaly T12, convergent T13)
+      // will run here too.
       const fileNodeSeeds = allNodes
         .filter((n) => n.kind === "file")
         .map((n) => n.id);
@@ -187,7 +188,12 @@ function stubSubcommand(
         boundaryTagNames,
       );
       const cycleSignals = runCycleEngine(store, cfg.config.engines.cycle);
-      const signals = [...radialSignals, ...cycleSignals];
+      const boundarySignals = cfg.config.boundaries
+        ? runBoundaryEngine(store, cfg.config.boundaries, {
+            allowedEdgeKinds: cfg.config.engines.cycle.allowed_edge_kinds,
+          })
+        : [];
+      const signals = [...radialSignals, ...cycleSignals, ...boundarySignals];
 
       // 5. Report.
       console.error(
