@@ -379,11 +379,26 @@ export function main(argv: string[] = process.argv): number {
       ]);
       const d = diffReports(baseReport, headReport, base, head);
       process.stdout.write(JSON.stringify(d, null, 2) + "\n");
-      // Exit 1 if any NEW hypothesis has severity >= high (regression).
+      // Exit-code logic for the diff command. We block on regressions
+      // (anything new or worsened), not on improvements:
+      //   1. NEW hypothesis with severity >= high → block (regression).
+      //   2. CHANGED hypothesis whose new severity is >= high AND
+      //      whose base severity was BELOW high → block (escalation).
+      //   3. RESOLVED hypotheses do NOT block (they're improvements).
+      //   4. UNCHANGED hypotheses do NOT block (status quo).
+      // The reason: a PR that fixes 5 critical issues but adds 1 new
+      // critical should still block (regression wins); a PR that only
+      // fixes issues should pass.
       const newIsCritical = d.new_hypotheses.some(
         (h) => SEVERITY_RANK[h.maxSeverity] >= SEVERITY_RANK.high,
       );
-      process.exit(newIsCritical ? ExitCode.THRESHOLD : ExitCode.OK);
+      const escalatedToHigh = d.changed_hypotheses.some((c) => {
+        const oldSev = SEVERITY_RANK[c.base.severity as "low" | "medium" | "high" | "critical"] ?? 0;
+        const newSev = SEVERITY_RANK[c.head.severity as "low" | "medium" | "high" | "critical"] ?? 0;
+        return newSev >= SEVERITY_RANK.high && oldSev < SEVERITY_RANK.high;
+      });
+      const hasRegression = newIsCritical || escalatedToHigh;
+      process.exit(hasRegression ? ExitCode.THRESHOLD : ExitCode.OK);
     });
 
   // `program.parse(argv)` (synchronous variant). Async action handlers

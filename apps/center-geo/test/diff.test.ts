@@ -166,3 +166,60 @@ describe("diffReports", () => {
     expect(d1).toEqual(d2);
   });
 });
+
+/* ── diff regression scenarios (T24+ fix) ──────────────────────── */
+
+describe("diffReports — regression scenarios", () => {
+  it("detects new critical that should block CI", () => {
+    const base = [fused({ targetId: "a", score: 1.0, maxSeverity: "medium" })];
+    const head = [
+      fused({ targetId: "a", score: 1.0, maxSeverity: "medium" }),
+      fused({ targetId: "b", score: 1.5, maxSeverity: "critical" }),
+    ];
+    const d = diffReports(base, head, "b", "h");
+    expect(d.new_hypotheses).toHaveLength(1);
+    expect(d.new_hypotheses[0].targetId).toBe("b");
+    expect(d.new_hypotheses[0].maxSeverity).toBe("critical");
+  });
+
+  it("detects changed that escalated from medium to critical (should block CI)", () => {
+    const base = [fused({ targetId: "a", score: 1.0, maxSeverity: "medium" })];
+    const head = [fused({ targetId: "a", score: 1.5, maxSeverity: "critical" })];
+    const d = diffReports(base, head, "b", "h");
+    expect(d.changed_hypotheses).toHaveLength(1);
+    expect(d.changed_hypotheses[0].base.severity).toBe("medium");
+    expect(d.changed_hypotheses[0].head.severity).toBe("critical");
+  });
+
+  it("detects resolved hypotheses (improvements, do NOT block CI)", () => {
+    const base = [
+      fused({ targetId: "a", score: 1.0, maxSeverity: "medium" }),
+      fused({ targetId: "b", score: 1.5, maxSeverity: "critical" }),
+    ];
+    const head = [fused({ targetId: "a", score: 1.0, maxSeverity: "medium" })];
+    const d = diffReports(base, head, "b", "h");
+    expect(d.resolved_hypotheses).toHaveLength(1);
+    expect(d.resolved_hypotheses[0].targetId).toBe("b");
+  });
+
+  it("unchanged hypotheses: same target, same score, same severity", () => {
+    const base = [fused({ targetId: "a", score: 1.0, maxSeverity: "high" })];
+    const head = [fused({ targetId: "a", score: 1.0, maxSeverity: "high" })];
+    const d = diffReports(base, head, "b", "h");
+    expect(d.unchanged_count).toBe(1);
+    expect(d.new_hypotheses).toHaveLength(0);
+    expect(d.resolved_hypotheses).toHaveLength(0);
+    expect(d.changed_hypotheses).toHaveLength(0);
+  });
+
+  it("score-only change (same severity) is detected as changed but not as escalation", () => {
+    const base = [fused({ targetId: "a", score: 1.0, maxSeverity: "medium" })];
+    const head = [fused({ targetId: "a", score: 1.5, maxSeverity: "medium" })];
+    const d = diffReports(base, head, "b", "h");
+    expect(d.changed_hypotheses).toHaveLength(1);
+    expect(d.changed_hypotheses[0].delta_score).toBeCloseTo(0.5, 4);
+    // Both severities are "medium" — not an escalation.
+    expect(d.changed_hypotheses[0].base.severity).toBe("medium");
+    expect(d.changed_hypotheses[0].head.severity).toBe("medium");
+  });
+});
