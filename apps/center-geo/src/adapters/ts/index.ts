@@ -20,6 +20,7 @@ import type { GraphNode, NodeKind } from "../../graph/types.js";
 
 import { parseSource } from "./parser.js";
 import { extractImportsAndExports } from "./imports.js";
+import { extractSymbols } from "./symbols.js";
 import type {
   AdapterFailure,
   AdapterResult,
@@ -56,8 +57,19 @@ function defaultFileNode(filePath: string): GraphNode {
 }
 
 /**
+ * T06 lands symbol nodes inside AdapterSuccess.nodes. We extend the
+ * AdapterSuccess type via a local intersection so the field is optional
+ * (only present when parseFile ran successfully). Callers that want
+ * the symbol nodes read `result.nodes` directly.
+ */
+export type ParseFileSuccess = AdapterSuccess & {
+  /** T06+ symbol nodes extracted from this file. Empty array for files with no symbols. */
+  nodes: GraphNode[];
+};
+
+/**
  * Parse a single source file and extract T05's edges (imports +
- * re-exports).
+ * re-exports) and T06's symbol nodes.
  *
  * Returns AdapterResult. On parse failure, returns AdapterFailure
  * with a synthetic diagnostic — the graph builder downstream turns
@@ -72,7 +84,7 @@ export function parseFile(
   filePath: string,
   source: string,
   options: ParseFileOptions = {},
-): AdapterResult {
+): ParseFileSuccess | AdapterFailure {
   const fileNode = options.fileNode ?? defaultFileNode(filePath);
   const diagnostics: ParseDiagnostic[] = [];
 
@@ -93,14 +105,21 @@ export function parseFile(
   const { edges, diagnostics: importDiags } = extractImportsAndExports(fileNode, parsed.ast);
   diagnostics.push(...importDiags);
 
+  // T06: extract symbol-level nodes (functions, classes, methods, interfaces, types, enums).
+  // Symbols are emitted as additional nodes; the import edges we already have
+  // are unrelated to symbols (different concern).
+  const { nodes: symbolNodes, edges: symbolEdges, diagnostics: symbolDiags } =
+    extractSymbols(fileNode, parsed.ast);
+  diagnostics.push(...symbolDiags);
+
   const success: AdapterSuccess = {
     ok: true,
     fileNode,
-    edges,
+    edges: [...edges, ...symbolEdges],
     diagnostics,
     parseMs: parsed.parseMs,
   };
-  return success;
+  return { ...success, nodes: symbolNodes };
 }
 
 export { extractImportsAndExports, makeToKey } from "./imports.js";
