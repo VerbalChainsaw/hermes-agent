@@ -19,6 +19,7 @@ import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { ExitCode, PACKAGE_VERSION, type ExitCodeValue } from "../index.js";
 import { loadConfig } from "../config/load.js";
+import { enumerateFiles } from "../enumerate/index.js";
 
 // Tool name — single source of truth. Mirrors the bin field in package.json
 // and the exports map key.
@@ -86,11 +87,32 @@ function stubSubcommand(
       }
       process.exit(ExitCode.CONFIG_ERROR);
     }
-    // Config OK — the subcommand body itself isn't implemented yet, but
-    // we proved the loader works end-to-end and the exit-code-3 path is
-    // reachable from the CLI. The next ticket (T02+ for this subcommand)
-    // will replace this stub with real indexing/scanning work; for now,
-    // surface what we have so the user knows their config was honored.
+    // For 'index', actually run the enumerator (T02) so we exercise the
+    // end-to-end path: load config → enumerate files → classify → report.
+    // For 'scan', just print the loader result (scan needs engines, T09+).
+    if (spec.name === "index") {
+      const result = await enumerateFiles(repo, cfg.config);
+      if (!result.ok) {
+        console.error(`${TOOL_NAME} index: ${result.message}`);
+        process.exit(ExitCode.REPO_READ_ERROR);
+      }
+      console.error(
+        `${TOOL_NAME} index: enumerated ${result.files.length} files ` +
+          `in ${result.durationMs.toFixed(0)}ms ` +
+          `(source=${result.counts.source}, test=${result.counts.test}, ` +
+          `generated=${result.counts.generated}, warnings=${result.warnings.length})`,
+      );
+      if (result.warnings.length > 0) {
+        for (const w of result.warnings.slice(0, 5)) {
+          console.error(`  warn ${w.path}: ${w.message}`);
+        }
+      }
+      // Stub: real graph emission is T03+. Surface the hash so users can
+      // verify determinism across runs.
+      console.error(`${TOOL_NAME} index: enumeration hash=${result.hash}. Not yet implemented as a graph emit (planned for T03+).`);
+      process.exit(ExitCode.INTERNAL);
+    }
+    // scan stub (T09+).
     console.error(
       `${TOOL_NAME} ${spec.name}: config OK (${cfg.source}, hash=${cfg.hash}). ` +
         `Stub exit: not yet implemented (planned for ${spec.ticketRange}). ` +
