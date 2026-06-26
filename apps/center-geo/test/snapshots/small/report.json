@@ -2,6 +2,14 @@
   "schema_version": "1.0.0",
   "count": 8,
   "raw_signal_count": 9,
+  "coverage": {
+    "files_seen": 10,
+    "files_parsed": 10,
+    "files_failed": 0,
+    "edges_low_confidence": 0,
+    "parse_ms": 0,
+    "graph_build_ms": 0
+  },
   "hypotheses": [
     {
       "id": "f:db80994620da8b7b",
