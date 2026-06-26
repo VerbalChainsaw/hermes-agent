@@ -27,6 +27,7 @@ import { runRadialEngine, SEVERITY_RANK } from "../engines/radial/index.js";
 import { runCycleEngine } from "../engines/cycle/index.js";
 import { runBoundaryEngine } from "../engines/boundary/index.js";
 import { runAnomalyEngine } from "../engines/anomaly/index.js";
+import { runConvergentEngine } from "../engines/convergent/index.js";
 
 // Tool name — single source of truth. Mirrors the bin field in package.json
 // and the exports map key.
@@ -174,10 +175,10 @@ function stubSubcommand(
       };
       const store = new GraphStore(snapshot);
 
-      // 4. Run the radial (T09), cycle (T10), boundary (T11), and
-      // anomaly (T12) engines over the same graph. All four are
-      // pure / read-only / deterministic. Future engines (convergent
-      // T13) will run here too.
+      // 4. Run all 5 engines: radial (T09), cycle (T10), boundary (T11),
+      // anomaly (T12), convergent (T13). All are pure / read-only /
+      // deterministic. Future fusion (T15) and reports (T17-T19) will
+      // consume the combined signal set.
       const fileNodeSeeds = allNodes
         .filter((n) => n.kind === "file")
         .map((n) => n.id);
@@ -197,11 +198,17 @@ function stubSubcommand(
       const anomalySignals = runAnomalyEngine(store, cfg.config.engines.anomaly, {
         allowedEdgeKinds: cfg.config.engines.cycle.allowed_edge_kinds,
       });
+      const convergentSignals = runConvergentEngine(
+        store,
+        cfg.config.engines.convergent,
+        { allowedEdgeKinds: cfg.config.engines.cycle.allowed_edge_kinds },
+      );
       const signals = [
         ...radialSignals,
         ...cycleSignals,
         ...boundarySignals,
         ...anomalySignals,
+        ...convergentSignals,
       ];
 
       // 5. Report.
