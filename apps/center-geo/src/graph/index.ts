@@ -32,3 +32,10 @@ export {
 } from "./ids.js";
 
 export { GraphStore, type GraphSummary, type EdgeOrderKey } from "./store.js";
+export {
+  bfs,
+  reverseBfs,
+  stronglyConnectedComponents,
+  type BfsResult,
+  type StronglyConnectedComponent,
+} from "./algorithms.js";
