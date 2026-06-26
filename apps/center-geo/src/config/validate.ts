@@ -18,6 +18,7 @@ import type {
   EnginesConfig,
   PathPattern,
 } from "./types.js";
+import { DEFAULT_CONFIG } from "./default.js";
 
 export interface ValidationError {
   /** Dotted path to the offending field (e.g. "engines.radial.max_depth"). */
@@ -203,10 +204,18 @@ function validateEngineConfig(
   raw: unknown,
   errors: ValidationError[],
 ): { enabled: boolean; max_depth?: number; max_nodes?: number; allowed_edge_kinds?: readonly import("../graph/types.js").EdgeKind[] } | null {
+  // Undefined: user omitted this engine. Fall back to DEFAULT_CONFIG.<name>
+  // (which has enabled: true and sensible per-engine knobs).
+  if (raw === undefined) {
+    return DEFAULT_CONFIG.engines[name];
+  }
   if (!isObject(raw)) {
     errors.push({ path: `engines.${name}`, message: `expected object, got ${typeof raw}` });
     return null;
   }
+  // User provided {} (empty object) — same as undefined: use defaults.
+  // (The "if (!isObject(raw))" check above returned for the non-object
+  // case; here we have an object but it might be empty.)
   const enabled = expectBoolean(raw, "enabled", true, errors);
   const max_depth = expectNumber(raw, "max_depth", false, errors);
   const max_nodes = expectNumber(raw, "max_nodes", false, errors);
@@ -227,11 +236,21 @@ function validateEngines(raw: unknown, errors: ValidationError[]): EnginesConfig
     errors.push({ path: "engines", message: `expected object, got ${typeof raw}` });
     return null;
   }
+  // Each engine is independently optional. Missing engines fall back
+  // to DEFAULT_CONFIG.<engine>. This mirrors the scoring/report fix:
+  // users can now provide a partial config (e.g. only `radial: { enabled: false }`
+  // to disable a noisy engine) and the rest of the engines stay at
+  // their sensible defaults.
   const result: Partial<EnginesConfig> = {};
   for (const id of ENGINE_IDS) {
+    // Pass `raw[id]` as-is. If it's undefined, validateEngineConfig
+    // returns `{ enabled: true, ...defaults }`.
     const v = validateEngineConfig(id, raw[id], errors);
     if (v) result[id] = v as EnginesConfig[typeof id];
   }
+  // All 5 engine slots must be filled (either user-provided or
+  // default). If any are missing, we have a bug — engine IDs are
+  // hard-coded so the loop always produces one entry.
   if (Object.keys(result).length !== ENGINE_IDS.length) return null;
   return result as EnginesConfig;
 }
@@ -372,7 +391,10 @@ export function validateConfig(raw: unknown): ValidationResult {
 
   const engines = enginesRaw ? validateEngines(enginesRaw, errors) : null;
 
-  // scoring: 8 required numeric fields.
+  // scoring: 8 numeric fields, each independently optional. Missing
+  // fields fall back to DEFAULT_CONFIG.scoring[field]. This is the
+  // partial-config fix: a user can provide just one bonus knob
+  // (e.g. `boundary_bonus: 0.5`) and the rest stay at their defaults.
   let scoring: Config["scoring"] | null = null;
   if (scoringRaw) {
     const keys = [
@@ -386,30 +408,14 @@ export function validateConfig(raw: unknown): ValidationResult {
       "capability_gap_penalty",
     ] as const;
     const partial: Record<string, number> = {};
-    let ok = true;
     for (const k of keys) {
-      const v = expectNumber(scoringRaw, k, true, errors);
-      if (v === null) {
-        ok = false;
-      } else {
-        partial[k] = v;
+      const v = expectNumber(scoringRaw, k, false, errors);
+      partial[k] = v ?? DEFAULT_CONFIG.scoring[k];
       }
+      scoring = partial as unknown as Config["scoring"];
     }
-    if (ok) {
-      scoring = {
-        geometry_bonus_per_extra_geometry: partial["geometry_bonus_per_extra_geometry"],
-        independence_bonus_per_extra_independent_method: partial["independence_bonus_per_extra_independent_method"],
-        boundary_bonus: partial["boundary_bonus"],
-        state_bonus: partial["state_bonus"],
-        cycle_bonus: partial["cycle_bonus"],
-        test_gap_bonus: partial["test_gap_bonus"],
-        contradiction_penalty: partial["contradiction_penalty"],
-        capability_gap_penalty: partial["capability_gap_penalty"],
-      };
-    }
-  }
 
-  // ci (optional).
+      // ci (optional).
   const ciRaw = expectObject(raw, "ci", errors);
   let ci: Config["ci"];
   if (ciRaw) {
@@ -436,27 +442,30 @@ export function validateConfig(raw: unknown): ValidationResult {
     }
   }
 
-  // report (required).
+  // report: 2 fields, each independently optional. Missing fields
+  // fall back to DEFAULT_CONFIG.report[field]. Mirrors the scoring
+  // partial-config fix.
   let report: Config["report"] | null = null;
   if (reportRaw) {
-    const top_n = expectNumber(reportRaw, "top_n_hypotheses", true, errors);
-    const redact = expectBoolean(reportRaw, "redact", true, errors);
+    const top_n = expectNumber(reportRaw, "top_n_hypotheses", false, errors);
+    const redact = expectBoolean(reportRaw, "redact", false, errors);
     if (top_n !== null && (!Number.isInteger(top_n) || top_n < 1)) {
       errors.push({ path: "report.top_n_hypotheses", message: "must be a positive integer" });
     }
-    if (top_n !== null && redact !== null) {
-      report = { top_n_hypotheses: top_n, redact };
-    }
+    report = {
+      top_n_hypotheses: top_n ?? DEFAULT_CONFIG.report.top_n_hypotheses,
+      redact: redact ?? DEFAULT_CONFIG.report.redact,
+    };
   }
 
-  // Aggregate result.
-  if (
-    !include ||
-    !exclude ||
-    !engines ||
-    !scoring ||
-    !report
-  ) {
+  // Aggregate result. include/exclude/engines are required user input;
+  // scoring/report have sane defaults in DEFAULT_CONFIG and are applied
+  // below when the user omits them. This is the T11+ fix: previously
+  // omitting scoring or report caused the validator to return
+  // {ok: false, errors: []} (this aggregate check failed but no error
+  // was pushed), which surfaced as the cryptic 'Config validation
+  // failed (0 errors)' message.
+  if (!include || !exclude || !engines) {
     return { ok: false, errors };
   }
 
@@ -464,8 +473,8 @@ export function validateConfig(raw: unknown): ValidationResult {
     include,
     exclude,
     engines,
-    scoring,
-    report,
+    scoring: scoring ?? DEFAULT_CONFIG.scoring,
+    report: report ?? DEFAULT_CONFIG.report,
     ...(generated ? { generated } : {}),
     ...(tests ? { tests } : {}),
     ...(boundaries ? { boundaries } : {}),

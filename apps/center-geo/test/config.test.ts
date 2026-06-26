@@ -418,3 +418,70 @@ describe("loadConfig — defaults merge", () => {
     ]);
   });
 });
+
+describe("loadConfig — partial config (T11+ fix)", () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "cg-cfg-partial-"));
+  });
+  afterEach(async () => {
+    await rm(dir, { recursive: true });
+  });
+
+  it("omits scoring and report — falls back to DEFAULT_CONFIG", async () => {
+    // The T11+ fix: previously omitting scoring or report caused
+    // the validator to return {ok: false, errors: []} (the aggregate
+    // check failed but no error was pushed). This surfaced as the
+    // cryptic "Config validation failed (0 errors)" message.
+    const yaml = `include: ["**/*.ts"]
+exclude: ["**/*.test.ts", "**/dist/**"]
+engines:
+  radial: { enabled: true }
+  cycle: { enabled: true }
+  boundary: { enabled: true }
+  anomaly: { enabled: true }
+  convergent: { enabled: true }
+`;
+    const path = join(dir, "partial.yml");
+    await writeFile(path, yaml, "utf-8");
+    const r = await loadConfig(path);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      // The defaults are applied: scoring + report populated.
+      expect(r.config.scoring.geometry_bonus_per_extra_geometry).toBe(0.5);
+      expect(r.config.report.top_n_hypotheses).toBe(20);
+    }
+  });
+
+  it("omits only scoring — report falls back to default", async () => {
+    const yaml = `include: ["**/*.ts"]
+exclude: ["**/*.test.ts"]
+engines: { radial: { enabled: true } }
+report: { top_n_hypotheses: 5, redact: true }
+`;
+    const path = join(dir, "r-only.yml");
+    await writeFile(path, yaml, "utf-8");
+    const r = await loadConfig(path);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.config.scoring.geometry_bonus_per_extra_geometry).toBe(0.5);
+      expect(r.config.report.top_n_hypotheses).toBe(5);
+    }
+  });
+
+  it("omits only report — scoring falls back to default", async () => {
+    const yaml = `include: ["**/*.ts"]
+exclude: ["**/*.test.ts"]
+engines: { radial: { enabled: true } }
+scoring: { geometry_bonus_per_extra_geometry: 0.7 }
+`;
+    const path = join(dir, "s-only.yml");
+    await writeFile(path, yaml, "utf-8");
+    const r = await loadConfig(path);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.config.scoring.geometry_bonus_per_extra_geometry).toBe(0.7);
+      expect(r.config.report.top_n_hypotheses).toBe(20);
+    }
+  });
+});
