@@ -37,6 +37,7 @@
     "center-geo": "node dist/cli/main.js"
   },
   "dependencies": {
+    "@typescript-eslint/parser": "^8.0.0",
     "commander": "^12.1.0",
     "js-yaml": "^4.1.0",
     "picomatch": "^4.0.4"
