@@ -1,0 +1,11 @@
+# center-geo — local build artifacts
+node_modules/
+dist/
+*.tsbuildinfo
+.hypothesis/
+coverage/
+.idea/
+.vscode/
+
+# .hermes/ is a working-area scaffold — git-ignore by default
+.hermes/
