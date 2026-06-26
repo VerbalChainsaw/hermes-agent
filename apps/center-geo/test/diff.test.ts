@@ -223,3 +223,89 @@ describe("diffReports — regression scenarios", () => {
     expect(d.changed_hypotheses[0].head.severity).toBe("medium");
   });
 });
+
+
+/* ── diffExitCode (DeepSeek Critical #2 + #3) ──────────────────────── */
+
+import { diffExitCode, InvalidSeverityError } from "../src/diff/index.js";
+
+describe("diffExitCode", () => {
+  it("regression=false on identical reports", () => {
+    const base = [fused({ targetId: "a", score: 1.0, maxSeverity: "high" })];
+    const head = [fused({ targetId: "a", score: 1.0, maxSeverity: "high" })];
+    const d = diffReports(base, head, "b", "h");
+    const decision = diffExitCode(d);
+    expect(decision.regression).toBe(false);
+  });
+
+  it("regression=true on new critical hypothesis", () => {
+    const base = [fused({ targetId: "a", score: 1.0, maxSeverity: "low" })];
+    const head = [
+      fused({ targetId: "a", score: 1.0, maxSeverity: "low" }),
+      fused({ targetId: "b", score: 1.5, maxSeverity: "critical" }),
+    ];
+    const d = diffReports(base, head, "b", "h");
+    const decision = diffExitCode(d);
+    expect(decision.regression).toBe(true);
+    expect(decision.reason).toMatch(/new hypothesis/);
+    expect(decision.reason).toMatch(/critical/);
+  });
+
+  it("regression=true on escalation from medium to high", () => {
+    const base = [fused({ targetId: "a", score: 1.0, maxSeverity: "medium" })];
+    const head = [fused({ targetId: "a", score: 1.5, maxSeverity: "high" })];
+    const d = diffReports(base, head, "b", "h");
+    const decision = diffExitCode(d);
+    expect(decision.regression).toBe(true);
+    expect(decision.reason).toMatch(/escalation/);
+  });
+
+  it("regression=false on score-only change (same severity)", () => {
+    const base = [fused({ targetId: "a", score: 1.0, maxSeverity: "medium" })];
+    const head = [fused({ targetId: "a", score: 1.5, maxSeverity: "medium" })];
+    const d = diffReports(base, head, "b", "h");
+    const decision = diffExitCode(d);
+    expect(decision.regression).toBe(false);
+  });
+
+  it("regression=false on resolved high-severity hypotheses (improvements)", () => {
+    const base = [
+      fused({ targetId: "a", score: 1.0, maxSeverity: "medium" }),
+      fused({ targetId: "b", score: 2.0, maxSeverity: "critical" }),
+    ];
+    const head = [fused({ targetId: "a", score: 1.0, maxSeverity: "medium" })];
+    const d = diffReports(base, head, "b", "h");
+    const decision = diffExitCode(d);
+    expect(decision.regression).toBe(false);
+  });
+
+  it("throws InvalidSeverityError on unknown severity in new hypothesis (Critical #3)", () => {
+    const base: FusedScore[] = [];
+    const head: FusedScore[] = [
+      fused({ targetId: "a", score: 1.0, maxSeverity: "blocker" as SeverityHint }),
+    ];
+    const d = diffReports(base, head, "b", "h");
+    expect(() => diffExitCode(d)).toThrow(InvalidSeverityError);
+    try {
+      diffExitCode(d);
+    } catch (err) {
+      expect(err).toBeInstanceOf(InvalidSeverityError);
+      expect((err as InvalidSeverityError).message).toMatch(/blocker/);
+      expect((err as InvalidSeverityError).message).toMatch(/Valid values/);
+    }
+  });
+
+  it("throws InvalidSeverityError on unknown severity in changed hypothesis (Critical #3)", () => {
+    const base = [fused({ targetId: "a", score: 1.0, maxSeverity: "medium" })];
+    const head = [fused({ targetId: "a", score: 1.5, maxSeverity: "blocker" as SeverityHint })];
+    const d = diffReports(base, head, "b", "h");
+    expect(() => diffExitCode(d)).toThrow(InvalidSeverityError);
+  });
+
+  it("InvalidSeverityError carries severity and where fields", () => {
+    const err = new InvalidSeverityError("blocker", "test.path");
+    expect(err.severity).toBe("blocker");
+    expect(err.where).toBe("test.path");
+    expect(err.name).toBe("InvalidSeverityError");
+  });
+});

@@ -126,3 +126,103 @@ export function diffReports(
     unchanged_count: unchanged,
   };
 }
+
+/**
+ * Exit-code decision for a diff. Independent of any specific ExitCode
+ * constant so the diff module can be reused by callers that have their
+ * own exit-code scheme (CI, pre-commit hook, etc.). The CLI's `diff`
+ * subcommand maps this to FR10's `ExitCode.THRESHOLD=1` /
+ * `ExitCode.OK=0`.
+ *
+ * The rule (locked in by the test suite):
+ *   - `regression: true`   → caller should exit non-OK (THRESHOLD).
+ *   - `regression: false`  → caller should exit OK.
+ *
+ * Two paths to a regression:
+ *   1. NEW hypothesis with severity >= high (a new critical signal).
+ *   2. CHANGED hypothesis whose new severity is >= high AND whose
+ *      base severity was below high (an escalation).
+ *
+ * RESOLVED, UNCHANGED, and CHANGED-with-stable-severity are NOT
+ * regressions. A PR that only fixes issues should pass.
+ */
+export interface DiffExitDecision {
+  regression: boolean;
+  /** Human-readable reason for the decision. Useful for CI logs. */
+  reason: string;
+}
+
+const SEVERITY_RANK: Record<string, number> = {
+  info: 0,
+  low: 1,
+  medium: 2,
+  high: 3,
+  critical: 4,
+};
+
+const VALID_SEVERITIES = new Set(Object.keys(SEVERITY_RANK));
+
+/**
+ * Throws if a severity string isn't a known value. This is the
+ * DeepSeek Critical #3 fix: a future-version `report.json` (e.g.
+ * `severity: "blocker"`) was silently treated as rank 0 ("info")
+ * and the regression check would pass when it shouldn't. We now
+ * fail loud at diff time.
+ */
+export class InvalidSeverityError extends Error {
+  constructor(public severity: string, public where: string) {
+    super(
+      `Invalid severity "${severity}" in ${where}. ` +
+        `Valid values: ${[...VALID_SEVERITIES].join(", ")}. ` +
+      `This is likely a future-version report that this version of ` +
+      `center-geo does not understand. Update center-geo or downgrade ` +
+      `the report to a compatible schema.`,
+    );
+    this.name = "InvalidSeverityError";
+  }
+}
+
+function validateSeverity(s: string, where: string): void {
+  if (!VALID_SEVERITIES.has(s)) {
+    throw new InvalidSeverityError(s, where);
+  }
+}
+
+export function diffExitCode(diff: DiffReport): DiffExitDecision {
+  // DeepSeek Critical #3: validate every severity string before using it.
+  // A hand-edited or future-version report.json with an unknown severity
+  // (e.g. "blocker") would otherwise be silently treated as rank 0,
+  // making the regression check pass when it should fail.
+  for (const h of diff.new_hypotheses) {
+    validateSeverity(h.maxSeverity, `new_hypotheses[${h.targetId}].maxSeverity`);
+  }
+  for (const h of diff.resolved_hypotheses) {
+    validateSeverity(h.maxSeverity, `resolved_hypotheses[${h.targetId}].maxSeverity`);
+  }
+  for (const c of diff.changed_hypotheses) {
+    validateSeverity(c.base.severity, `changed_hypotheses[${c.targetId}].base.severity`);
+    validateSeverity(c.head.severity, `changed_hypotheses[${c.targetId}].head.severity`);
+  }
+
+  const newHigh = diff.new_hypotheses.find(
+    (h) => SEVERITY_RANK[h.maxSeverity] >= SEVERITY_RANK.high,
+  );
+  if (newHigh) {
+    return {
+      regression: true,
+      reason: `new hypothesis with severity=${newHigh.maxSeverity} (targetId=${newHigh.targetId})`,
+    };
+  }
+  const escalated = diff.changed_hypotheses.find((c) => {
+    const oldSev = SEVERITY_RANK[c.base.severity] ?? 0;
+    const newSev = SEVERITY_RANK[c.head.severity] ?? 0;
+    return newSev >= SEVERITY_RANK.high && oldSev < SEVERITY_RANK.high;
+  });
+  if (escalated) {
+    return {
+      regression: true,
+      reason: `escalation: ${escalated.base.severity} -> ${escalated.head.severity} (targetId=${escalated.targetId})`,
+    };
+  }
+  return { regression: false, reason: "no new or escalated high-severity hypotheses" };
+}

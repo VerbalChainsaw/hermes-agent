@@ -4,5 +4,6 @@
  * T24.
  */
 
-export { diffReports, readReport } from "./compare.js";
-export type { DiffReport, FusedScoreById } from "./compare.js";
+export { diffReports, readReport, diffExitCode } from "./compare.js";
+export { InvalidSeverityError } from "./compare.js";
+export type { DiffReport, FusedScoreById, DiffExitDecision } from "./compare.js";
