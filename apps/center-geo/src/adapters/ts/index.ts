@@ -21,6 +21,7 @@ import type { GraphNode, NodeKind } from "../../graph/types.js";
 import { parseSource } from "./parser.js";
 import { extractImportsAndExports } from "./imports.js";
 import { extractSymbols } from "./symbols.js";
+import { extractCalls, buildSymbolIndex } from "./calls.js";
 import type {
   AdapterFailure,
   AdapterResult,
@@ -112,10 +113,21 @@ export function parseFile(
     extractSymbols(fileNode, parsed.ast);
   diagnostics.push(...symbolDiags);
 
+  // T07: extract call edges. Builds a symbol index first so we can resolve
+  // local function calls (high confidence) and imported-symbol calls
+  // (medium confidence). Unresolvable calls emit "unknown_dynamic" edges.
+  const symbolIndex = buildSymbolIndex(fileNode.path ?? "", parsed.ast);
+  const { edges: callEdges, diagnostics: callDiags } = extractCalls(
+    fileNode,
+    parsed.ast,
+    symbolIndex,
+  );
+  diagnostics.push(...callDiags);
+
   const success: AdapterSuccess = {
     ok: true,
     fileNode,
-    edges: [...edges, ...symbolEdges],
+    edges: [...edges, ...symbolEdges, ...callEdges],
     diagnostics,
     parseMs: parsed.parseMs,
   };
