@@ -36,6 +36,8 @@
  *     pairs that imply logical contradiction.
  */
 
+
+import { createHash } from "node:crypto";
 import { SEVERITY_RANK, type Signal, type SeverityHint } from "../engines/radial/signals.js";
 import type { ScoringConfig } from "../config/types.js";
 import type { FusedScore } from "./types.js";
@@ -53,7 +55,7 @@ function maxSeverity(a: SeverityHint, b: SeverityHint): SeverityHint {
  * normalized: targetId + sorted signal ids. This guarantees the
  * same fused score id across runs (deterministic).
  */
-import { createHash } from "node:crypto";
+
 
 function fusedScoreId(targetId: string, signalIds: readonly string[]): string {
   const h = createHash("sha256");

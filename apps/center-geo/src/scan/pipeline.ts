@@ -287,10 +287,12 @@ export async function runScanPipeline(
   const convergentCfg: EngineConfig = inputs.config.engines.convergent ?? {};
   const allowedEdgeKinds = cycleCfg.allowed_edge_kinds;
 
+  // Run all 5 engines and concatenate their signals. We use .flat()
+  // rather than spread for readability (DeepSeek Nit #1).
   const signals: Signal[] = [
-    ...runRadialEngine(store, radialCfg, fileNodeIds, boundaryTagNames),
-    ...runCycleEngine(store, cycleCfg as Parameters<typeof runCycleEngine>[1]),
-    ...(inputs.config.boundaries
+    runRadialEngine(store, radialCfg, fileNodeIds, boundaryTagNames),
+    runCycleEngine(store, cycleCfg as Parameters<typeof runCycleEngine>[1]),
+    inputs.config.boundaries
       ? runBoundaryEngine(
           store,
           {
@@ -299,16 +301,16 @@ export async function runScanPipeline(
           },
           { allowedEdgeKinds },
         )
-      : []),
-    ...runAnomalyEngine(store, anomalyCfg as Parameters<typeof runAnomalyEngine>[1], {
+      : [],
+    runAnomalyEngine(store, anomalyCfg as Parameters<typeof runAnomalyEngine>[1], {
       allowedEdgeKinds,
     }),
-    ...runConvergentEngine(
+    runConvergentEngine(
       store,
       convergentCfg as Parameters<typeof runConvergentEngine>[1],
       { allowedEdgeKinds },
     ),
-  ];
+  ].flat();
   const engineMs = Date.now() - engineStartMs;
 
   // 5. Fuse (T14). The CLI handles top-N and format dispatch.
