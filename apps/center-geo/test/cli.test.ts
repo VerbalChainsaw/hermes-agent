@@ -113,10 +113,12 @@ describe("center-geo CLI (T00 smoke)", () => {
         // are still pending. The exit code is the "internal stub" marker;
         // the WORK (parse, graph, engine) all completes before exit.
         const r = runCli(["scan", repoRoot]);
-        // The exit may be 5 (the stub exit at end of scan) OR 0 (if the
-        // handler completes naturally). Both are acceptable — the test
-        // asserts the WORK happened.
-        expect([ExitCode.OK, ExitCode.INTERNAL]).toContain(r.status);
+        // The exit may be 0 (no high-severity signals), 1 (THRESHOLD: high-
+        // or critical-severity signals in the top hypotheses; introduced
+        // in T15), or 5 (INTERNAL: stub exit, only seen on pre-T09
+        // branches). All three are acceptable — the test asserts the
+        // WORK happened.
+        expect([ExitCode.OK, ExitCode.THRESHOLD, ExitCode.INTERNAL]).toContain(r.status);
         // stderr includes the summary line with N nodes + N edges.
         expect(r.stderr).toMatch(/scan: \d+ nodes, \d+ edges/);
         // At least one signal reported (radial engine emits high_fan_out

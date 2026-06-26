@@ -30,6 +30,7 @@ import { runAnomalyEngine } from "../engines/anomaly/index.js";
 import { runConvergentEngine } from "../engines/convergent/index.js";
 import { fuseSignals } from "../scoring/fuse.js";
 import { formatHuman, formatJson } from "../output/format.js";
+import { writeJsonReport, writeMarkdownReport, writeSarifReport } from "../reports/index.js";
 
 // Tool name — single source of truth. Mirrors the bin field in package.json
 // and the exports map key.
@@ -43,6 +44,7 @@ const TOOL_NAME = "center-geo";
 interface StubOptions {
   config?: string;
   output?: string;
+  outputDir?: string;
   ci?: boolean;
   format?: "human" | "json";
 }
@@ -236,7 +238,7 @@ function stubSubcommand(
       const top = fused.slice(0, topN);
 
       // Format dispatch (T15).
-      // - 'human' (default): stderr summary, machine-friendly exit code.
+      // - 'human' (default): stderr summary + body, exit code based on severity.
       // - 'json': stdout JSON, stderr status, exit code based on severity.
       const fmt: "human" | "json" =
         options.format === "json" ? "json" : "human";
@@ -245,8 +247,28 @@ function stubSubcommand(
         const out = formatJson(fused, topN, signals.length);
         process.stdout.write(out);
       } else {
+        // Human mode: print a 1-line summary + the top-N body.
+        process.stderr.write(
+          `${TOOL_NAME} scan: ${allNodes.length} nodes, ${allEdges.length} edges, ` +
+            `${signals.length} signals fused into ${fused.length} hypotheses ` +
+            `(${enumResult.files.length} files, ${parseWarnings.length} parse warnings)\n`,
+        );
         const out = formatHuman(fused, topN);
         process.stderr.write(out);
+      }
+
+      // T17-T19: write JSON, Markdown, and SARIF reports to --output-dir
+      // if specified. T17 emits the same shape as the stdout JSON; T18
+      // emits a human-readable markdown table; T19 emits SARIF 2.1.0
+      // for GitHub code-scanning integration.
+      if (options.outputDir) {
+        const dir = options.outputDir;
+        await Promise.all([
+          writeJsonReport(fused, topN, signals.length, `${dir}/report.json`),
+          writeMarkdownReport(fused, topN, signals.length, PACKAGE_VERSION, `${dir}/report.md`),
+          writeSarifReport(fused, topN, TOOL_NAME, PACKAGE_VERSION, `${dir}/report.sarif`),
+        ]);
+        process.stderr.write(`${TOOL_NAME} scan: wrote reports to ${dir}/report.{json,md,sarif}\n`);
       }
 
       // Exit code: 1 (threshold) if any top hypothesis has severity >= high.
