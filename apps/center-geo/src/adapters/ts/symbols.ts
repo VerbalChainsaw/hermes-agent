@@ -188,6 +188,43 @@ function extractClassMembers(
  * Symbol ids follow the pattern `<kind>:file:<posix-path>::<symbol>`.
  * For methods, the symbol is qualified by class name.
  */
+
+/**
+ * Unwrap an ExportNamedDeclaration to its inner declaration, or
+ * return null for re-exports (no inner declaration). The wrapper
+ * carries the export marker (`exportKind: "value"` / `"type"` /
+ * etc.); the inner declaration is what the type-specific extractors
+ * know how to handle. Used by `extractSymbols` to route
+ * `export function foo()` to the FunctionDeclaration handler.
+ *
+ * Returns the inner declaration AND its export marker (if any):
+ *   - `null`:        a re-export with no inner declaration (e.g.
+ *                     `export { a } from "./b"`). The caller should
+ *                     skip — T05's import/export edge extractor
+ *                     already handles this case.
+ *   - `undefined`:   the input was not an ExportNamedDeclaration;
+ *                     the caller should pass the input through
+ *                     unchanged. The export flag is false.
+ *   - `{ node, exported }`: the inner declaration; `exported` is true
+ *                     iff the wrapper had `exportKind: "value"` or
+ *                     `"type"` (the AST's marker for an export).
+ */
+type UnwrapResult =
+  | { node: TsNodeLike; exported: boolean }
+  | null
+  | undefined;
+
+function unwrapExport(node: TsNodeLike): UnwrapResult {
+  if (node.type !== "ExportNamedDeclaration") return undefined;
+  const inner = (node as unknown as { declaration?: unknown; exportKind?: string })
+    .declaration;
+  if (inner === null || inner === undefined) return null;
+  if (!isTsNodeLike(inner as TsNodeLike)) return undefined;
+  const exportKind = (node as unknown as { exportKind?: string }).exportKind;
+  const exported = exportKind === "value" || exportKind === "type";
+  return { node: inner as TsNodeLike, exported };
+}
+
 export function extractSymbols(
   fileNode: GraphNode,
   ast: unknown,
@@ -222,8 +259,29 @@ export function extractSymbols(
     return { nodes, edges, diagnostics };
   }
 
-  for (const stmt of body) {
-    if (!isTsNodeLike(stmt)) continue;
+  for (const rawStmt of body) {
+    if (!isTsNodeLike(rawStmt)) continue;
+
+    // Unwrap ExportNamedDeclaration to its inner declaration. The
+    // ESTree spec for `export function foo()` is:
+    //   ExportNamedDeclaration { declaration: FunctionDeclaration }
+    // and the export marker (exportKind: "value"/"type") is on the
+    // WRAPPER, not the inner declaration. Without this unwrap, the
+    // walker falls through to the "Unhandled" diagnostic and the
+    // symbol is silently dropped. (This also subsumes the historical
+    // T07+ TODO in hasExportKeyword, since the inner declaration
+    // is now the one the type-specific extractors see directly.)
+    let stmt: TsNodeLike;
+    let wrapperExported = false;
+    if (rawStmt.type === "ExportNamedDeclaration") {
+      const unwrapped = unwrapExport(rawStmt);
+      if (unwrapped === null) continue; // re-export (e.g. `export { a } from "./b"`)
+      if (unwrapped === undefined) continue; // not a TsNodeLike after unwrap
+      stmt = unwrapped.node;
+      wrapperExported = unwrapped.exported;
+    } else {
+      stmt = rawStmt;
+    }
 
     // Skip interface declarations that are entirely type-only — we
     // still emit a node (interfaces are graph-relevant for fusion),
@@ -243,7 +301,7 @@ export function extractSymbols(
         });
         continue;
       }
-      const exported = stmt.declare === true || stmt.exportKind === "value" || hasExportKeyword(stmt);
+      const exported = stmt.declare === true || wrapperExported || hasExportKeyword(stmt);
       const funcNode = makeSymbolNode(
         "function",
         filePath,
@@ -270,7 +328,7 @@ export function extractSymbols(
         });
         continue;
       }
-      const exported = hasExportKeyword(stmt);
+      const exported = wrapperExported || hasExportKeyword(stmt);
       const classNode = makeSymbolNode(
         "class",
         filePath,
@@ -308,7 +366,7 @@ export function extractSymbols(
         });
         continue;
       }
-      const exported = hasExportKeyword(stmt);
+      const exported = wrapperExported || hasExportKeyword(stmt);
       const node = makeSymbolNode(
         "interface",
         filePath,
@@ -332,7 +390,7 @@ export function extractSymbols(
         });
         continue;
       }
-      const exported = hasExportKeyword(stmt);
+      const exported = wrapperExported || hasExportKeyword(stmt);
       const node = makeSymbolNode(
         "type",
         filePath,
@@ -356,7 +414,7 @@ export function extractSymbols(
         });
         continue;
       }
-      const exported = hasExportKeyword(stmt);
+      const exported = wrapperExported || hasExportKeyword(stmt);
       // We emit enums as "type" kind (no dedicated enum kind; schema
       // has 13 node kinds and enum is one of the implicit category
       // ones that fits "type"). Future ticket can add a dedicated kind.

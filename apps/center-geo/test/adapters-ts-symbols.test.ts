@@ -176,3 +176,162 @@ import { extractSymbols } from "../src/adapters/ts/symbols.js";
 function extractSymbolsDirect(fileNode: GraphNode, ast: unknown) {
   return extractSymbols(fileNode, ast);
 }
+
+
+/* ── Fix #5: ExportNamedDeclaration unwrap ─────────────────────── */
+
+describe("extractSymbols — ExportNamedDeclaration unwrap (T07+ fix)", () => {
+  it("extracts a function from `export function foo()`", () => {
+    const source = `export function exported() { return 1; }`;
+    const r = parseFile("src/a.ts", source);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const funcs = r.nodes.filter((n) => n.kind === "function");
+    expect(funcs).toHaveLength(1);
+    expect(funcs[0].symbol).toBe("src/a.ts::exported");
+  });
+
+  it("extracts a class from `export class Foo {}`", () => {
+    const source = `export class Foo { method() {} }`;
+    const r = parseFile("src/a.ts", source);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const classes = r.nodes.filter((n) => n.kind === "class");
+    const methods = r.nodes.filter((n) => n.kind === "method");
+    expect(classes).toHaveLength(1);
+    expect(methods).toHaveLength(1);
+    expect(methods[0].symbol).toBe("src/a.ts::Foo.method");
+  });
+
+  it("extracts an interface from `export interface I {}`", () => {
+    const source = `export interface I { x: number }`;
+    const r = parseFile("src/a.ts", source);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const ifaces = r.nodes.filter((n) => n.kind === "interface");
+    expect(ifaces).toHaveLength(1);
+    expect(ifaces[0].symbol).toBe("src/a.ts::I");
+  });
+
+  it("extracts a type alias from `export type T = ...`", () => {
+    const source = `export type T = number`;
+    const r = parseFile("src/a.ts", source);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const types = r.nodes.filter((n) => n.kind === "type");
+    expect(types).toHaveLength(1);
+  });
+
+  it("extracts an enum from `export enum E {}`", () => {
+    const source = `export enum E { A, B }`;
+    const r = parseFile("src/a.ts", source);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const enums = r.nodes.filter((n) => n.label.startsWith("enum"));
+    expect(enums).toHaveLength(1);
+  });
+
+  it("does NOT create a symbol node for `export { a } from './b'` (re-export)", () => {
+    // The T05 import/export extractor handles re-exports; the symbol
+    // extractor should NOT also create one (that would be a duplicate).
+    const source = `export { default } from "./other";`;
+    const r = parseFile("src/a.ts", source);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // No symbol nodes — the export has no inner declaration.
+    const symbolNodes = r.nodes.filter((n) => n.kind !== "file");
+    expect(symbolNodes).toHaveLength(0);
+  });
+
+  it("does NOT create duplicate symbol nodes when there are multiple exports", () => {
+    const source = `
+      export function a() {}
+      export function b() {}
+      export const c = 1;
+    `;
+    const r = parseFile("src/a.ts", source);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const symbols = r.nodes.filter((n) => n.kind !== "file");
+    // 2 functions (a, b) + 0 from c (variable decl doesn't create a symbol
+    // node in this implementation, only declarations do).
+    expect(symbols).toHaveLength(2);
+    const names = symbols.map((n) => n.symbol).sort();
+    expect(names).toEqual(["src/a.ts::a", "src/a.ts::b"]);
+  });
+});
+
+
+describe("extractSymbols — ExportNamedDeclaration marker preserved (Fix #5)", () => {
+  it("exported function is marked exported=true", () => {
+    const source = `export function exported() {}`;
+    const r = parseFile("src/a.ts", source);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const f = r.nodes.find((n) => n.kind === "function");
+    expect(f).toBeDefined();
+    expect(f!.tags.includes("exported")).toBe(true);
+  });
+
+  it("non-exported function is marked exported=false", () => {
+    const source = `function internal() {}`;
+    const r = parseFile("src/a.ts", source);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const f = r.nodes.find((n) => n.kind === "function");
+    expect(f).toBeDefined();
+    expect(f!.tags.includes("exported")).toBe(false);
+  });
+
+  it("exported class is marked exported=true", () => {
+    const source = `export class Foo { method() {} }`;
+    const r = parseFile("src/a.ts", source);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const c = r.nodes.find((n) => n.kind === "class");
+    expect(c).toBeDefined();
+    expect(c!.tags.includes("exported")).toBe(true);
+  });
+
+  it("exported interface is marked exported=true", () => {
+    const source = `export interface I { x: number }`;
+    const r = parseFile("src/a.ts", source);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const i = r.nodes.find((n) => n.kind === "interface");
+    expect(i).toBeDefined();
+    expect(i!.tags.includes("exported")).toBe(true);
+  });
+
+  it("exported type alias is marked exported=true", () => {
+    const source = `export type T = number`;
+    const r = parseFile("src/a.ts", source);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const t = r.nodes.find((n) => n.kind === "type");
+    expect(t).toBeDefined();
+    expect(t!.tags.includes("exported")).toBe(true);
+  });
+
+  it("exported enum is marked exported=true", () => {
+    const source = `export enum E { A, B }`;
+    const r = parseFile("src/a.ts", source);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const e = r.nodes.find((n) => n.label.startsWith("enum"));
+    expect(e).toBeDefined();
+    expect(e!.tags.includes("exported")).toBe(true);
+  });
+
+  it("re-export (no inner declaration) is correctly skipped", () => {
+    // `export { default } from "./other"` — the re-export has no inner
+    // declaration. The walker should NOT create a symbol node for it.
+    const source = `export { foo } from "./other";`;
+    const r = parseFile("src/a.ts", source);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // No symbol nodes — the re-export has no inner declaration.
+    const nonFile = r.nodes.filter((n) => n.kind !== "file");
+    expect(nonFile).toHaveLength(0);
+  });
+});
