@@ -61,8 +61,13 @@ export interface EngineConfig {
    * site (e.g. "imports" vs "import").
    */
   allowed_edge_kinds?: readonly EdgeKind[];
-  /** Engine-specific knobs land here. */
+  /**
+   * Engine-specific knobs land here. Cycle engine uses `max_cycle_size`:
+   * skip cycles with more than this many nodes. Radial engine ignores
+   * this; boundary / anomaly / convergent will define their own.
+   */
   [key: string]: unknown;
+  max_cycle_size?: number;
 }
 
 export interface EnginesConfig {

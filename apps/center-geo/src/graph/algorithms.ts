@@ -165,8 +165,12 @@ export interface StronglyConnectedComponent {
  *
  * Implementation notes:
  *   - Classic Tarjan: O(V + E) using a single DFS pass with index,
- *     lowlink, and an on-stack set. Recursive (not iterative) for
- *     clarity; recursion depth bounded by V.
+ *     lowlink, and an on-stack set.
+ *   - **Iterative** (not recursive) so a 1M-node SCC doesn't blow
+ *     Node's default ~10k-frame V8 stack. Uses an explicit work
+ *     stack where each frame tracks (node, iterator position) so the
+ *     algorithm is still a single DFS pass with the same O(V+E)
+ *     complexity.
  *   - Self-loops are detected: a node with an edge to itself forms an
  *     SCC of size 1 but isCycle=true.
  */
@@ -180,49 +184,103 @@ export function stronglyConnectedComponents(
   const stack: string[] = [];
   const sccs: string[][] = [];
 
-  function strongconnect(v: string): void {
-    idx.set(v, index);
-    low.set(v, index);
-    index++;
-    stack.push(v);
-    onStack.add(v);
-
-    // Visit successors in deterministic order (store.outboundEdges is sorted).
-    for (const edgeId of store.outboundEdges(v)) {
-      const edge = store.getEdge(edgeId);
-      if (!edge) continue;
-      const w = edge.to;
-      if (!idx.has(w)) {
-        strongconnect(w);
-        low.set(v, Math.min(low.get(v) ?? 0, low.get(w) ?? 0));
-      } else if (onStack.has(w)) {
-        low.set(v, Math.min(low.get(v) ?? 0, idx.get(w) ?? 0));
-      }
-      // For multi-edges: we only need the min, so don't iterate again.
-    }
-
-    // If v is a root node, pop the stack and generate an SCC.
-    if (low.get(v) === idx.get(v)) {
-      const component: string[] = [];
-      let w: string | undefined;
-      do {
-        w = stack.pop();
-        if (w === undefined) break;
-        onStack.delete(w);
-        component.push(w);
-      } while (w !== v);
-      // Sort members for determinism.
-      component.sort();
-      sccs.push(component);
-    }
+  /**
+   * Frame in the explicit DFS work stack. `node` is the node being
+   * visited; `nextChildIdx` is the next index in `outboundEdges(node)`
+   * to process (a cursor — advances as we pop frames).
+   */
+  interface Frame {
+    node: string;
+    /** Pre-computed list of successor node ids (deterministic). */
+    successors: string[];
+    /** Cursor into successors. */
+    nextChildIdx: number;
   }
 
   // Iterate over all nodes in sorted order (T04 guarantee). This
   // makes the SCC output fully deterministic regardless of insertion
   // order.
-  for (const nodeId of store.allNodes().map((n) => n.id)) {
-    if (!idx.has(nodeId)) {
-      strongconnect(nodeId);
+  for (const startNode of store.allNodes().map((n) => n.id)) {
+    if (idx.has(startNode)) continue;
+
+    // Start a new DFS from startNode. The work stack holds frames
+    // for the "currently active" path from a root; each frame
+    // corresponds to one recursion call in the textbook algorithm.
+    const workStack: Frame[] = [];
+    // Initialize the root frame.
+    idx.set(startNode, index);
+    low.set(startNode, index);
+    index++;
+    stack.push(startNode);
+    onStack.add(startNode);
+    const startSuccs: string[] = [];
+    for (const edgeId of store.outboundEdges(startNode)) {
+      const e = store.getEdge(edgeId);
+      if (e) startSuccs.push(e.to);
+    }
+    workStack.push({ node: startNode, successors: startSuccs, nextChildIdx: 0 });
+
+    while (workStack.length > 0) {
+      const frame = workStack[workStack.length - 1];
+      const v = frame.node;
+      const w = frame.successors[frame.nextChildIdx];
+
+      if (w === undefined) {
+        // All successors visited. Pop this frame and decide whether
+        // v is an SCC root.
+        workStack.pop();
+        if (workStack.length > 0) {
+          // CRITICAL: propagate low[v] up to the new top-of-stack
+          // (the parent). In the recursive algorithm this is the
+          // `low.set(v, Math.min(low.get(v), low.get(w)))` line
+          // after `strongconnect(w)` returns. In the iterative form
+          // we have to do it at the pop point because we lose the
+          // v → parent reference when v is no longer on the work stack.
+          const parent = workStack[workStack.length - 1].node;
+          low.set(parent, Math.min(low.get(parent) ?? 0, low.get(v) ?? 0));
+        }
+        if (low.get(v) === idx.get(v)) {
+          // v is an SCC root: pop the stack until we pop v.
+          const component: string[] = [];
+          let popped: string | undefined;
+          do {
+            popped = stack.pop();
+            if (popped === undefined) break;
+            onStack.delete(popped);
+            component.push(popped);
+          } while (popped !== v);
+          component.sort();
+          sccs.push(component);
+        }
+        continue;
+      }
+
+      // Advance the cursor BEFORE processing the child, so the
+      // next iteration of this loop moves to the next successor.
+      frame.nextChildIdx++;
+
+      if (!idx.has(w)) {
+        // Tree edge: descend into w. Push a new frame for w.
+        idx.set(w, index);
+        low.set(w, index);
+        index++;
+        stack.push(w);
+        onStack.add(w);
+        const wSuccs: string[] = [];
+        for (const edgeId of store.outboundEdges(w)) {
+          const e = store.getEdge(edgeId);
+          if (e) wSuccs.push(e.to);
+        }
+        workStack.push({ node: w, successors: wSuccs, nextChildIdx: 0 });
+        continue;
+      }
+
+      if (onStack.has(w)) {
+        // Back/cross edge to an ancestor on the current path.
+        low.set(v, Math.min(low.get(v) ?? 0, idx.get(w) ?? 0));
+      }
+      // If w is already indexed but not on the current stack, it's
+      // a cross edge to a different SCC — no lowlink update.
     }
   }
 

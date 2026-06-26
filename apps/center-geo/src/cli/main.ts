@@ -24,6 +24,7 @@ import { enumerateFiles } from "../enumerate/index.js";
 import { parseFile } from "../adapters/ts/index.js";
 import { GraphStore } from "../graph/index.js";
 import { runRadialEngine, SEVERITY_RANK } from "../engines/radial/index.js";
+import { runCycleEngine } from "../engines/cycle/index.js";
 
 // Tool name — single source of truth. Mirrors the bin field in package.json
 // and the exports map key.
@@ -171,17 +172,22 @@ function stubSubcommand(
       };
       const store = new GraphStore(snapshot);
 
-      // 4. Run the radial engine (T09) over the file nodes as seeds.
+      // 4. Run the radial (T09) and cycle (T10) engines over the same graph.
+      // Both engines are pure (same input -> same output) and read-only.
+      // Future engines (boundary T11, anomaly T12, convergent T13) will
+      // run here too.
       const fileNodeSeeds = allNodes
         .filter((n) => n.kind === "file")
         .map((n) => n.id);
       const boundaryTagNames = Object.keys(cfg.config.boundaries?.tags ?? {});
-      const signals = runRadialEngine(
+      const radialSignals = runRadialEngine(
         store,
         cfg.config.engines.radial,
         fileNodeSeeds,
         boundaryTagNames,
       );
+      const cycleSignals = runCycleEngine(store, cfg.config.engines.cycle);
+      const signals = [...radialSignals, ...cycleSignals];
 
       // 5. Report.
       console.error(
