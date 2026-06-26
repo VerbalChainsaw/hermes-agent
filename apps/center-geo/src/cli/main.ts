@@ -20,6 +20,9 @@ import { fileURLToPath } from "node:url";
 import { ExitCode, PACKAGE_VERSION, type ExitCodeValue } from "../index.js";
 import { loadConfig } from "../config/load.js";
 import { enumerateFiles } from "../enumerate/index.js";
+import { parseFile } from "../adapters/ts/index.js";
+import { GraphStore } from "../graph/index.js";
+import { runRadialEngine } from "../engines/radial/index.js";
 
 // Tool name — single source of truth. Mirrors the bin field in package.json
 // and the exports map key.
@@ -89,7 +92,8 @@ function stubSubcommand(
     }
     // For 'index', actually run the enumerator (T02) so we exercise the
     // end-to-end path: load config → enumerate files → classify → report.
-    // For 'scan', just print the loader result (scan needs engines, T09+).
+    // For 'scan', the full pipeline runs through the radial engine (T09):
+    // enumerate → parse → build graph → run engines → emit signals.
     if (spec.name === "index") {
       const result = await enumerateFiles(repo, cfg.config);
       if (!result.ok) {
@@ -113,12 +117,93 @@ function stubSubcommand(
       process.exit(ExitCode.INTERNAL);
     }
     // scan stub (T09+).
-    console.error(
-      `${TOOL_NAME} ${spec.name}: config OK (${cfg.source}, hash=${cfg.hash}). ` +
-        `Stub exit: not yet implemented (planned for ${spec.ticketRange}). ` +
-        `Target repo: ${repo}`,
-    );
-    process.exit(ExitCode.INTERNAL);
+    {
+      // 1. Enumerate files.
+      const enumResult = await enumerateFiles(repo, cfg.config);
+      if (!enumResult.ok) {
+        console.error(`${TOOL_NAME} scan: ${enumResult.message}`);
+        process.exit(ExitCode.REPO_READ_ERROR);
+      }
+
+      // 2. Parse each source file via the TS adapter (T05-T07).
+      const allNodes: import("../graph/index.js").GraphNode[] = [];
+      const allEdges: import("../graph/index.js").GraphEdge[] = [];
+      const parseWarnings: { file: string; code: string; message: string }[] = [];
+      for (const f of enumResult.files) {
+        if (f.classification !== "source") continue; // skip tests + generated in T09
+        const content = await import("node:fs/promises").then((m) => m.readFile(f.absolutePath, "utf-8"));
+        const parseResult = parseFile(f.relativePath, content);
+        if (parseResult.ok) {
+          allNodes.push(parseResult.fileNode, ...parseResult.nodes);
+          allEdges.push(...parseResult.edges);
+        } else {
+          parseWarnings.push({
+            file: f.relativePath,
+            code: parseResult.code,
+            message: parseResult.message,
+          });
+        }
+      }
+
+      // 3. Build a graph snapshot + store.
+      const snapshot: import("../graph/index.js").GraphSnapshot = {
+        schema_version: "1.0.0",
+        tool_version: "0.1.0",
+        graph_id: `scan:${repo}:${cfg.hash}`,
+        root: repo,
+        coverage: {
+          files_seen: enumResult.files.length,
+          files_parsed: enumResult.files.length - parseWarnings.length,
+          files_failed: parseWarnings.length,
+          edges_low_confidence: allEdges.filter((e) => e.confidence === "low" || e.confidence === "unknown").length,
+          parse_ms: 0,
+          graph_build_ms: 0,
+        },
+        nodes: allNodes,
+        edges: allEdges,
+        warnings: parseWarnings.map((w) => ({
+          code: w.code,
+          message: w.message,
+          path: w.file,
+          severity: "warning" as const,
+        })),
+      };
+      const store = new GraphStore(snapshot);
+
+      // 4. Run the radial engine (T09) over the file nodes as seeds.
+      const fileNodeSeeds = allNodes
+        .filter((n) => n.kind === "file")
+        .map((n) => n.id);
+      const boundaryTagNames = Object.keys(cfg.config.boundaries?.tags ?? {});
+      const signals = runRadialEngine(
+        store,
+        cfg.config.engines.radial,
+        fileNodeSeeds,
+        boundaryTagNames,
+      );
+
+      // 5. Report.
+      console.error(
+        `${TOOL_NAME} scan: ${allNodes.length} nodes, ${allEdges.length} edges, ` +
+          `${signals.length} signals (${enumResult.files.length} files, ${parseWarnings.length} parse warnings)`,
+      );
+      if (signals.length > 0) {
+        // Top 5 signals by severity.
+        const sevRank = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
+        const top = [...signals]
+          .sort((a, b) => sevRank[b.severityHint] - sevRank[a.severityHint])
+          .slice(0, 5);
+        for (const s of top) {
+          console.error(`  ${s.severityHint.padEnd(8)} ${s.type.padEnd(22)} -> ${s.targetId}`);
+        }
+      }
+      if (parseWarnings.length > 0) {
+        console.error(`  parse warnings: ${parseWarnings.length} (first: ${parseWarnings[0].file}: ${parseWarnings[0].code})`);
+      }
+      // Stub exit: real fusion (T15) + report writers (T17-T19) land later.
+      console.error(`${TOOL_NAME} scan: graph store built. Fusion + report emit planned for T15-T19.`);
+      process.exit(ExitCode.INTERNAL);
+    }
   });
 }
 
@@ -205,20 +290,29 @@ export function main(argv: string[] = process.argv): number {
     options: { config: true, output: "dir", ci: true },
   });
 
-  try {
-    program.parse(argv);
-    return ExitCode.OK;
-  } catch (err) {
-    if (err instanceof CommanderError) {
-      const code = mapCommanderError(err);
-      // commander already wrote the error message to stderr; nothing to
-      // add except the exit code mapping.
-      return code;
+  // `program.parse(argv)` (synchronous variant). Async action handlers
+    // in T05-T09 call process.exit() directly; that propagates to the
+    // shell exit code even when the parent process exits before the
+    // handler completes (which is fine for spawned-process scenarios
+    // because spawnSync / shell wait for the actual exit code).
+    //
+    // For commander parse errors (--nope, missing arg, etc.) we use
+    // exitOverride() so commander throws CommanderError instead of
+    // calling process.exit — that lets us map errors to spec exit codes.
+    try {
+      program.parse(argv);
+      return ExitCode.OK;
+    } catch (err) {
+      if (err instanceof CommanderError) {
+        const code = mapCommanderError(err);
+        // commander already wrote the error message to stderr; nothing to
+        // add except the exit code mapping.
+        return code;
+      }
+      // Unknown error (TypeError, etc.) — treat as internal.
+      return ExitCode.INTERNAL;
     }
-    throw err;
   }
-}
-
 // Global safety net: an uncaught exception or unhandled rejection
 // otherwise defaults to exit 1, which conflicts with FR10 (1 = threshold
 // exceeded). Route to INTERNAL=5 so CI gates can tell crashes from
