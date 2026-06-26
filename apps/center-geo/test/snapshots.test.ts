@@ -95,8 +95,9 @@ describe("snapshot tests (T22) — small fixture, byte-stable reports", () => {
     }
   });
 
-  it("two runs of the same fixture produce byte-identical output", async () => {
-    // Pure stability: run twice, expect byte-equal.
+  it("two runs of the same fixture produce structurally identical output", async () => {
+    // Run twice. Both outputs must match STRUCTURALLY (the volatile
+    // timing fields are scrubbed by compareSnapshots).
     const r1 = spawnSync(
       "node",
       [CLI, "scan", "--output-dir", `${reportDir}-s1`, "--format", "json", fixtureRoot],
@@ -109,13 +110,28 @@ describe("snapshot tests (T22) — small fixture, byte-stable reports", () => {
     );
     expect(r1.status === 0 || r1.status === 1).toBe(true);
     expect(r2.status === 0 || r2.status === 1).toBe(true);
+    const { readFile: rf, rm: rmAsync } = await import("node:fs/promises");
+    const c1 = await rf(join(`${reportDir}-s1`, "report.json"), "utf-8");
+    const c2 = await rf(join(`${reportDir}-s2`, "report.json"), "utf-8");
+    // Use the structural diff (scrubs volatile timing fields).
+    const d = await compareSnapshots(
+      join(`${reportDir}-s1`, "report.json"),
+      c1,
+      { isJson: true },
+    );
+    // The compare above only checks against the file on disk. For
+    // two-runs-comparison we synthesize a "golden" of c1 and compare
+    // c2 against it.
+    const fs2 = await import("node:fs/promises");
+    const c1Path = join(`${reportDir}-s1`, "report.json.c1-tmp");
+    await fs2.writeFile(c1Path, c1, "utf-8");
+    const d2 = await compareSnapshots(c1Path, c2, { isJson: true });
+    await fs2.rm(c1Path);
+    if (d2.kind !== "match") {
+      throw new Error(formatDiff(d2));
+    }
 
-    const { readFile, rm: rmAsync } = await import("node:fs/promises");
-    const c1 = await readFile(join(`${reportDir}-s1`, "report.json"), "utf-8");
-    const c2 = await readFile(join(`${reportDir}-s2`, "report.json"), "utf-8");
-    expect(c1).toBe(c2);
-
-    // Cleanup the second run.
+    // Cleanup.
     await rmAsync(`${reportDir}-s1`, { recursive: true, force: true });
     await rmAsync(`${reportDir}-s2`, { recursive: true, force: true });
   });

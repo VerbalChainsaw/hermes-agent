@@ -51,6 +51,21 @@ export interface SnapshotDiff {
 
 const STRUCTURAL_SAMPLE_SIZE = 3;
 
+/**
+ * Paths in the JSON that are inherently non-deterministic. We scrub
+ * these before structural comparison. The "right fix" is to NOT
+ * include them in the golden, but we keep them in the report for
+ * debugging. Adding a path here means: "we don't care if this
+ * value changes between runs."
+ */
+const VOLATILE_JSON_PATHS = new Set([
+  // Coverage timing fields — these depend on actual wall-clock time
+  // and CPU scheduling. Two runs on the same fixture produce
+  // different values; byte-comparing them would always fail.
+  "coverage.parse_ms",
+  "coverage.graph_build_ms",
+]);
+
 export async function compareSnapshots(
   expectedFile: string,
   actualContent: string,
@@ -69,6 +84,37 @@ export async function compareSnapshots(
     };
   }
 
+  // For JSON: always go through the structural diff. The structural
+  // diff scrubs volatile fields (timing) so two runs that differ
+  // ONLY in those fields still match. Byte-equal is a fast path
+  // inside the structural diff (the diff returns match if no paths
+  // differ).
+  if (options.isJson) {
+    const summary = structuralJsonDiff(expected, actualContent);
+    const hasChanges =
+      summary.addedPaths.length > 0 ||
+      summary.removedPaths.length > 0 ||
+      summary.changedPaths.length > 0;
+    if (hasChanges) {
+      return {
+        kind: "json-mismatch",
+        expectedFile,
+        actualSize: actualContent.length,
+        expectedSize: expected.length,
+        sizeDelta: actualContent.length - expected.length,
+        structuralSummary: summary,
+      };
+    }
+    return {
+      kind: "match",
+      expectedFile,
+      actualSize: actualContent.length,
+      expectedSize: expected.length,
+      sizeDelta: actualContent.length - expected.length,
+    };
+  }
+
+  // For non-JSON: byte-equal fast path, then line-diff fallback.
   if (expected === actualContent) {
     return {
       kind: "match",
@@ -76,17 +122,6 @@ export async function compareSnapshots(
       actualSize: actualContent.length,
       expectedSize: expected.length,
       sizeDelta: 0,
-    };
-  }
-
-  if (options.isJson) {
-    return {
-      kind: "json-mismatch",
-      expectedFile,
-      actualSize: actualContent.length,
-      expectedSize: expected.length,
-      sizeDelta: actualContent.length - expected.length,
-      structuralSummary: structuralJsonDiff(expected, actualContent),
     };
   }
 
@@ -118,6 +153,12 @@ function structuralJsonDiff(expected: string, actual: string): StructuralJsonDif
     return { addedPaths: ["(unparseable)"], removedPaths: ["(unparseable)"], changedPaths: [] };
   }
 
+  // Scrub volatile paths (timing fields, etc.) by setting both sides
+  // to a sentinel value. This keeps the structural diff focused on
+  // substantive changes rather than non-deterministic timing.
+  scrubVolatile(expObj);
+  scrubVolatile(actObj);
+
   const expKeys = collectPaths(expObj);
   const actKeys = new Set(collectPaths(actObj));
   for (const p of expKeys) {
@@ -145,6 +186,18 @@ function structuralJsonDiff(expected: string, actual: string): StructuralJsonDif
   };
 }
 
+/**
+ * Set all VOLATILE_JSON_PATHS to a sentinel. Mutates the object in
+ * place. We use a stable sentinel so both expected and actual
+ * produce the same string, making the diff see "no change" there.
+ */
+function scrubVolatile(obj: unknown): void {
+  if (obj === null || typeof obj !== "object") return;
+  for (const p of VOLATILE_JSON_PATHS) {
+    setByPath(obj, p, "<volatile>");
+  }
+}
+
 function* walkJsonPaths(obj: unknown, prefix: string = ""): Generator<string> {
   if (obj === null || typeof obj !== "object") return;
   if (Array.isArray(obj)) {
@@ -165,7 +218,28 @@ function collectPaths(obj: unknown): string[] {
 }
 
 function getByPath(obj: unknown, path: string): unknown {
-  // Very small path parser: supports `a.b.c` and `a[0]`. No escapes.
+  const parts: Array<string | number> = parsePathParts(path);
+  let cur: unknown = obj;
+  for (const p of parts) {
+    if (cur === null || cur === undefined) return undefined;
+    cur = (cur as Record<string | number, unknown>)[p];
+  }
+  return cur;
+}
+
+function setByPath(obj: unknown, path: string, value: unknown): void {
+  const parts: Array<string | number> = parsePathParts(path);
+  if (parts.length === 0) return;
+  let cur: Record<string | number, unknown> = obj as Record<string | number, unknown>;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const p = parts[i];
+    if (cur[p] === null || cur[p] === undefined) return; // can't create
+    cur = cur[p] as Record<string | number, unknown>;
+  }
+  cur[parts[parts.length - 1]] = value;
+}
+
+function parsePathParts(path: string): Array<string | number> {
   const parts: Array<string | number> = [];
   let buf = "";
   for (let i = 0; i < path.length; i++) {
@@ -182,12 +256,7 @@ function getByPath(obj: unknown, path: string): unknown {
     }
   }
   if (buf) parts.push(buf);
-  let cur: unknown = obj;
-  for (const p of parts) {
-    if (cur === null || cur === undefined) return undefined;
-    cur = (cur as Record<string | number, unknown>)[p];
-  }
-  return cur;
+  return parts;
 }
 
 function firstNLineDiffs(expected: string, actual: string, n: number): Array<{ line: number; expected: string; actual: string }> {

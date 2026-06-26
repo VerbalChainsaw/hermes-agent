@@ -15,22 +15,25 @@
  */
 
 import { Command, CommanderError } from "commander";
-import { readFile } from "node:fs/promises";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { ExitCode, PACKAGE_VERSION, type ExitCodeValue } from "../index.js";
+
+import {
+  ExitCode,
+  PACKAGE_VERSION,
+  type ExitCodeValue,
+} from "../index.js";
 import { loadConfig } from "../config/load.js";
-import { enumerateFiles } from "../enumerate/index.js";
-import { parseFile } from "../adapters/ts/index.js";
-import { GraphStore } from "../graph/index.js";
-import { runRadialEngine, SEVERITY_RANK } from "../engines/radial/index.js";
-import { runCycleEngine } from "../engines/cycle/index.js";
-import { runBoundaryEngine } from "../engines/boundary/index.js";
-import { runAnomalyEngine } from "../engines/anomaly/index.js";
-import { runConvergentEngine } from "../engines/convergent/index.js";
-import { fuseSignals } from "../scoring/fuse.js";
+import { enumerateFiles } from "../enumerate/enumerate.js";
+import { GraphStore } from "../graph/store.js";
+import { SEVERITY_RANK } from "../engines/radial/index.js";
 import { formatHuman, formatJson } from "../output/format.js";
-import { writeJsonReport, writeMarkdownReport, writeSarifReport } from "../reports/index.js";
+import {
+  writeJsonReport,
+  writeMarkdownReport,
+  writeSarifReport,
+} from "../reports/index.js";
+import { runScanPipeline, ScanError } from "../scan/index.js";
 import {
   diffReports,
   readReport,
@@ -108,18 +111,19 @@ function stubSubcommand(
   }
 
   cmd.action(async (repo: string, options: StubOptions) => {
-    // Load + validate config BEFORE claiming "not yet implemented".
-    // T01 acceptance: invalid config returns ExitCode.CONFIG_ERROR=3.
-    const cfg = await loadConfig(options.config);
-    if (!cfg.ok) {
-      console.error(`${TOOL_NAME} ${spec.name}: ${cfg.message}`);
-      if (cfg.code === "validation_error" && Array.isArray(cfg.details)) {
-        for (const err of cfg.details as { path: string; message: string }[]) {
-          console.error(`  - ${err.path || "(root)"}: ${err.message}`);
+    try {
+      // Load + validate config BEFORE claiming "not yet implemented".
+      // T01 acceptance: invalid config returns ExitCode.CONFIG_ERROR=3.
+      const cfg = await loadConfig(options.config);
+      if (!cfg.ok) {
+        console.error(`${TOOL_NAME} ${spec.name}: ${cfg.message}`);
+        if (cfg.code === "validation_error" && Array.isArray(cfg.details)) {
+          for (const err of cfg.details as { path: string; message: string }[]) {
+            console.error(`  - ${err.path || "(root)"}: ${err.message}`);
+          }
         }
+        process.exit(ExitCode.CONFIG_ERROR);
       }
-      process.exit(ExitCode.CONFIG_ERROR);
-    }
     // For 'index', actually run the enumerator (T02) so we exercise the
     // end-to-end path: load config → enumerate files → classify → report.
     // For 'scan', the full pipeline runs through the radial engine (T09):
@@ -146,57 +150,35 @@ function stubSubcommand(
       console.error(`${TOOL_NAME} index: enumeration hash=${result.hash}. Not yet implemented as a graph emit (planned for T03+).`);
       process.exit(ExitCode.INTERNAL);
     }
-    // scan stub (T09+).
+    // scan (T09+): run the full pipeline via runScanPipeline().
+    // DeepSeek Important #2: the pipeline was extracted to
+    // src/scan/pipeline.ts so this CLI is a thin orchestrator.
     {
-      // 1. Enumerate files.
-      const enumResult = await enumerateFiles(repo, cfg.config);
-      if (!enumResult.ok) {
-        console.error(`${TOOL_NAME} scan: ${enumResult.message}`);
-        process.exit(ExitCode.REPO_READ_ERROR);
-      }
+      const result = await runScanPipeline({
+        repo,
+        config: cfg.config,
+        deterministicGraphId: true, // DeepSeek Important #3
+      });
 
-      // 2. Parse each source file via the TS adapter (T05-T07).
-      const allNodes: import("../graph/index.js").GraphNode[] = [];
-      const allEdges: import("../graph/index.js").GraphEdge[] = [];
-      // Count of FILES that parsed successfully (not nodes, not edges).
-      // We track this explicitly because allNodes also contains symbol
-      // nodes (one per function/class/etc), so subtracting parseWarnings
-      // from allNodes.length is meaningless.
-      let parseSuccessCount = 0;
-      const parseWarnings: { file: string; code: string; message: string }[] = [];
-      for (const f of enumResult.files) {
-        if (f.classification !== "source") continue; // skip tests + generated in T09
-        const content = await readFile(f.absolutePath, "utf-8");
-        const parseResult = parseFile(f.relativePath, content);
-        if (parseResult.ok) {
-          allNodes.push(parseResult.fileNode, ...parseResult.nodes);
-          allEdges.push(...parseResult.edges);
-          parseSuccessCount++;
-        } else {
-          parseWarnings.push({
-            file: f.relativePath,
-            code: parseResult.code,
-            message: parseResult.message,
-          });
-        }
-      }
-
-      // 3. Build a graph snapshot + store.
+      // Reconstruct the GraphSnapshot from the pipeline result so the
+      // existing T15/T17-T19 output code can stay unchanged.
+      const allNodes = result.nodes;
+      const allEdges = result.edges;
+      const signals = result.signals;
+      const fused = result.fused;
+      const parseWarnings = result.parseWarnings;
+      // Reuse the pipeline's snapshot (which has the canonical
+      // coverage: files_seen = every enumerated file, not just the
+      // successfully-parsed ones). The CLI overrides fields that
+      // depend on the CLI's run (tool_version, graph_id) and adds
+      // warnings.
+      const pipelineSnapshot = result.store.snapshot;
       const snapshot: import("../graph/index.js").GraphSnapshot = {
+        ...pipelineSnapshot,
         schema_version: "1.0.0",
         tool_version: PACKAGE_VERSION,
-        graph_id: `scan:${repo}:${cfg.hash}`,
+        graph_id: result.graphId,
         root: repo,
-        coverage: {
-          files_seen: enumResult.files.length,
-          files_parsed: parseSuccessCount,
-          files_failed: parseWarnings.length,
-          edges_low_confidence: allEdges.filter((e) => e.confidence === "low" || e.confidence === "unknown").length,
-          parse_ms: 0,
-          graph_build_ms: 0,
-        },
-        nodes: allNodes,
-        edges: allEdges,
         warnings: parseWarnings.map((w) => ({
           code: w.code,
           message: w.message,
@@ -204,54 +186,15 @@ function stubSubcommand(
           severity: "warning" as const,
         })),
       };
-      const store = new GraphStore(snapshot);
-
-      // 4. Run all 5 engines: radial (T09), cycle (T10), boundary (T11),
-      // anomaly (T12), convergent (T13). All are pure / read-only /
-      // deterministic. Future fusion (T15) and reports (T17-T19) will
-      // consume the combined signal set.
-      const fileNodeSeeds = allNodes
-        .filter((n) => n.kind === "file")
-        .map((n) => n.id);
-      const boundaryTagNames = Object.keys(cfg.config.boundaries?.tags ?? {});
-      const radialSignals = runRadialEngine(
-        store,
-        cfg.config.engines.radial,
-        fileNodeSeeds,
-        boundaryTagNames,
-      );
-      const cycleSignals = runCycleEngine(store, cfg.config.engines.cycle);
-      const boundarySignals = cfg.config.boundaries
-        ? runBoundaryEngine(store, cfg.config.boundaries, {
-            allowedEdgeKinds: cfg.config.engines.cycle.allowed_edge_kinds,
-          })
-        : [];
-      const anomalySignals = runAnomalyEngine(store, cfg.config.engines.anomaly, {
-        allowedEdgeKinds: cfg.config.engines.cycle.allowed_edge_kinds,
-      });
-      const convergentSignals = runConvergentEngine(
-        store,
-        cfg.config.engines.convergent,
-        { allowedEdgeKinds: cfg.config.engines.cycle.allowed_edge_kinds },
-      );
-      const signals = [
-        ...radialSignals,
-        ...cycleSignals,
-        ...boundarySignals,
-        ...anomalySignals,
-        ...convergentSignals,
-      ];
-
-      // 5. Fuse + rank + report. T14 (scoring/fusion) collapses the 5
-      // engine outputs into per-target FusedScore[]. T15 picks the top
-      // config.report.top_n_hypotheses (default 20) and emits them.
-      const fused = fuseSignals(signals, cfg.config.scoring);
+      // Construct the graph store from the snapshot (T03). Used by
+      // the report writers to navigate the graph; not used by the
+      // CLI handler itself.
+      void new GraphStore(snapshot);
+      const fileNodeSeeds = allNodes.filter((n) => n.kind === "file").map((n) => n.id);
       const topN = cfg.config.report.top_n_hypotheses;
       const top = fused.slice(0, topN);
 
       // Format dispatch (T15).
-      // - 'human' (default): stderr summary + body, exit code based on severity.
-      // - 'json': stdout JSON, stderr status, exit code based on severity.
       const fmt: "human" | "json" =
         options.format === "json" ? "json" : "human";
 
@@ -263,16 +206,14 @@ function stubSubcommand(
         process.stderr.write(
           `${TOOL_NAME} scan: ${allNodes.length} nodes, ${allEdges.length} edges, ` +
             `${signals.length} signals fused into ${fused.length} hypotheses ` +
-            `(${enumResult.files.length} files, ${parseWarnings.length} parse warnings)\n`,
+            `(${fileNodeSeeds.length} files, ${parseWarnings.length} parse warnings, ` +
+            `parse=${result.parseMs}ms engines=${result.engineMs}ms)\n`,
         );
         const out = formatHuman(fused, topN);
         process.stderr.write(out);
       }
 
-      // T17-T19: write JSON, Markdown, and SARIF reports to --output-dir
-      // if specified. T17 emits the same shape as the stdout JSON; T18
-      // emits a human-readable markdown table; T19 emits SARIF 2.1.0
-      // for GitHub code-scanning integration.
+      // T17-T19: write JSON, Markdown, and SARIF reports to --output-dir.
       if (options.outputDir) {
         const dir = options.outputDir;
         await Promise.all([
@@ -289,7 +230,24 @@ function stubSubcommand(
       );
       process.exit(highSeverity ? ExitCode.THRESHOLD : ExitCode.OK);
     }
+    } catch (err) {
+      // Map pipeline errors to FR10 exit codes. The pipeline throws
+      // ScanError for enumeration failures (path doesn't exist, no
+      // files matched, etc.); for these we exit REPO_READ_ERROR=4,
+      // not the uncaught-exception default of INTERNAL=5.
+      if (err instanceof ScanError && err.code === "enumeration_failed") {
+        console.error(err.message);
+        process.exit(ExitCode.REPO_READ_ERROR);
+      }
+      // Diff subcommand's InvalidSeverityError is handled INSIDE the
+      // diff action (it has its own catch). The diff action is a
+      // separate command, so we never reach here for diff errors.
+      // Anything else is INTERNAL=5.
+      console.error(`${TOOL_NAME} ${spec.name}: ${err instanceof Error ? err.message : String(err)}`);
+      process.exit(ExitCode.INTERNAL);
+    }
   });
+
 }
 
 /**
