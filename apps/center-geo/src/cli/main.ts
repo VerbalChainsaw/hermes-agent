@@ -28,6 +28,7 @@ import { runCycleEngine } from "../engines/cycle/index.js";
 import { runBoundaryEngine } from "../engines/boundary/index.js";
 import { runAnomalyEngine } from "../engines/anomaly/index.js";
 import { runConvergentEngine } from "../engines/convergent/index.js";
+import { fuseSignals } from "../scoring/fuse.js";
 
 // Tool name — single source of truth. Mirrors the bin field in package.json
 // and the exports map key.
@@ -211,18 +212,26 @@ function stubSubcommand(
         ...convergentSignals,
       ];
 
-      // 5. Report.
+      // 5. Fuse + rank. T14 (scoring/fusion) collapses the 5 engine
+      // outputs into per-target FusedScore[]. T15 ranks them; the top
+      // config.report.top_n_hypotheses (default 20) become the report.
+      const fused = fuseSignals(signals, cfg.config.scoring);
+      const top = fused.slice(0, cfg.config.report.top_n_hypotheses);
       console.error(
         `${TOOL_NAME} scan: ${allNodes.length} nodes, ${allEdges.length} edges, ` +
-          `${signals.length} signals (${enumResult.files.length} files, ${parseWarnings.length} parse warnings)`,
+          `${signals.length} signals fused into ${fused.length} hypotheses ` +
+          `(${enumResult.files.length} files, ${parseWarnings.length} parse warnings)`,
       );
-      if (signals.length > 0) {
-        // Top 5 signals by severity.
-        const top = [...signals]
-          .sort((a, b) => SEVERITY_RANK[b.severityHint] - SEVERITY_RANK[a.severityHint])
-          .slice(0, 5);
-        for (const s of top) {
-          console.error(`  ${s.severityHint.padEnd(8)} ${s.type.padEnd(22)} -> ${s.targetId}`);
+      if (top.length > 0) {
+        for (const h of top.slice(0, 5)) {
+          const sev = SEVERITY_RANK[h.maxSeverity] >= SEVERITY_RANK.high ? h.maxSeverity.padEnd(8) : "        ";
+          const geomSummary = h.geometries.join(",");
+          console.error(
+            `  score=${h.score.toFixed(2)} ${sev} ${h.targetKind} -> ${h.targetId}  [${geomSummary}]`,
+          );
+        }
+        if (top.length > 5) {
+          console.error(`  ... and ${top.length - 5} more`);
         }
       }
       if (parseWarnings.length > 0) {
