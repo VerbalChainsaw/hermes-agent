@@ -103,6 +103,22 @@ export function parseFile(
     return failure;
   }
 
+  // Refine the file node's range with the actual AST program loc.
+  // Without this, file-level signals (high_fan_out, fan_in_anomaly,
+  // etc.) have no source range to anchor to, and the SARIF writer
+  // can't emit a region. Per SARIF 2.1.0 spec, startLine/endLine
+  // are 1-based, which matches what @typescript-eslint/parser's
+  // loc.start.line emits.
+  if (!options.fileNode) {
+    const astLoc = (parsed.ast as { loc?: { start: { line: number }; end: { line: number } } } | null)?.loc;
+    if (astLoc) {
+      fileNode.range = {
+        start_line: astLoc.start.line,
+        end_line: astLoc.end.line,
+      };
+    }
+  }
+
   // Wrap the post-parse body in try/catch so a single malformed-but-
   // parseable file (one that yields a syntactically valid AST that
   // still trips one of the extractors) becomes an AdapterFailure
