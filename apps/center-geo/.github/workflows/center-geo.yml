@@ -1,0 +1,67 @@
+name: center-geo
+
+on:
+  pull_request:
+    paths: ['src/**', 'package.json', '.center-geo.yml']
+  push:
+    branches: [main]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history is required for diff-mode and accurate
+          # git history-based signal detection.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Scan
+        id: scan
+        # `center-geo scan` exits 1 (THRESHOLD) when high-severity
+        # signals are detected. CI blocks the PR on that.
+        # Other non-zero exits (2 extraction_gap, 3 config_error,
+        # 4 repo_read_error, 5 internal) are surfaced as failure too.
+        run: |
+          npx center-geo scan --output-dir ./cg-out .
+        continue-on-error: true
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: center-geo-report
+          path: cg-out/
+          retention-days: 14
+
+      - name: Publish SARIF to GitHub code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: cg-out/report.sarif
+          category: center-geo
+
+      - name: Post PR comment with markdown report
+        if: github.event_name == 'pull_request' && always()
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: center-geo
+          path: cg-out/report.md
+
+      - name: Block PR on threshold
+        if: steps.scan.outcome == 'failure' && steps.scan.conclusion == 'failure'
+        run: |
+          echo "::error::center-geo scan failed. See cg-out/report.md for details."
+          exit 1
