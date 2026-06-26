@@ -31,6 +31,7 @@ import { runConvergentEngine } from "../engines/convergent/index.js";
 import { fuseSignals } from "../scoring/fuse.js";
 import { formatHuman, formatJson } from "../output/format.js";
 import { writeJsonReport, writeMarkdownReport, writeSarifReport } from "../reports/index.js";
+import { diffReports, readReport } from "../diff/index.js";
 
 // Tool name — single source of truth. Mirrors the bin field in package.json
 // and the exports map key.
@@ -362,6 +363,28 @@ export function main(argv: string[] = process.argv): number {
     ticketRange: "T09+",
     options: { config: true, output: "dir", ci: true, format: true },
   });
+
+  // T24: diff subcommand. Compares two report.json files and emits
+  // a JSON diff to stdout. Useful for CI: compare the current scan
+  // to the baseline and report new/resolved/changed hypotheses.
+  program
+    .command("diff")
+    .description("Compare two report.json files and emit a JSON diff (T24).")
+    .argument("<base>", "Path to the base report.json (e.g. main branch).")
+    .argument("<head>", "Path to the head report.json (e.g. PR branch).")
+    .action(async (base: string, head: string) => {
+      const [baseReport, headReport] = await Promise.all([
+        readReport(base),
+        readReport(head),
+      ]);
+      const d = diffReports(baseReport, headReport, base, head);
+      process.stdout.write(JSON.stringify(d, null, 2) + "\n");
+      // Exit 1 if any NEW hypothesis has severity >= high (regression).
+      const newIsCritical = d.new_hypotheses.some(
+        (h) => SEVERITY_RANK[h.maxSeverity] >= SEVERITY_RANK.high,
+      );
+      process.exit(newIsCritical ? ExitCode.THRESHOLD : ExitCode.OK);
+    });
 
   // `program.parse(argv)` (synchronous variant). Async action handlers
     // in T05-T09 call process.exit() directly; that propagates to the
