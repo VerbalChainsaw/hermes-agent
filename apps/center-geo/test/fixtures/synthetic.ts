@@ -109,3 +109,34 @@ export async function createFixture(
     },
   };
 }
+
+/**
+ * Fixture with `brokenCount` files that fail to parse (syntax errors).
+ * Useful for testing coverage.files_parsed / coverage.files_failed
+ * math.
+ */
+export async function createMixedFixture(
+  size: number,
+  brokenCount: number,
+): Promise<{ root: string; fileCount: number; cleanup: () => Promise<void> }> {
+  const root = await mkdtemp(join(tmpdir(), "cg-mixed-"));
+  await mkdir(join(root, "src"), { recursive: true });
+  await writeFile(
+    join(root, "package.json"),
+    JSON.stringify({ name: "mixed", version: "0.0.0" }, null, 2),
+    "utf-8",
+  );
+  const fileCount = size;
+  for (let i = 0; i < size; i++) {
+    const isBroken = i < brokenCount;
+    const content = isBroken
+      ? `import { x } from "./x.js"\nconst y = ;\nconst z = "${"broken"}"\n` // syntax error: `const y = ;`
+      : `export function fn${i}() { return ${i}; }\n`;
+    await writeFile(join(root, "src", `f${i}.ts`), content, "utf-8");
+  }
+  return {
+    root,
+    fileCount,
+    cleanup: async () => { await rm(root, { recursive: true, force: true }); },
+  };
+}

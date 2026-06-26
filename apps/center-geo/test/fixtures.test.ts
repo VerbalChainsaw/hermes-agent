@@ -59,3 +59,26 @@ describe("synthetic fixtures (T20)", () => {
     }
   });
 });
+import { createMixedFixture } from "./fixtures/synthetic.js";
+
+describe("mixed fixtures (parse-failure coverage)", () => {
+  it("createMixedFixture creates the requested number of files", async () => {
+    const f = await createMixedFixture(10, 5);
+    try {
+      expect(f.fileCount).toBe(10);
+    } finally {
+      await f.cleanup();
+    }
+  });
+
+  it("the 5 broken files are valid syntactically-incomplete TypeScript", async () => {
+    // Sanity-check: our intentional parse error is actually a parse error.
+    const { parseFile } = await import("../src/adapters/ts/index.js");
+    const broken = `import { x } from "./x.js"\nconst y = ;\nconst z = "broken"\n`;
+    const r = parseFile("broken.ts", broken);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.code).toBe("syntax_error");
+    }
+  });
+});

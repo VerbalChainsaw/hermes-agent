@@ -31,7 +31,12 @@ import { runConvergentEngine } from "../engines/convergent/index.js";
 import { fuseSignals } from "../scoring/fuse.js";
 import { formatHuman, formatJson } from "../output/format.js";
 import { writeJsonReport, writeMarkdownReport, writeSarifReport } from "../reports/index.js";
-import { diffReports, readReport } from "../diff/index.js";
+import {
+  diffReports,
+  readReport,
+  diffExitCode,
+  InvalidSeverityError,
+} from "../diff/index.js";
 
 // Tool name — single source of truth. Mirrors the bin field in package.json
 // and the exports map key.
@@ -153,6 +158,11 @@ function stubSubcommand(
       // 2. Parse each source file via the TS adapter (T05-T07).
       const allNodes: import("../graph/index.js").GraphNode[] = [];
       const allEdges: import("../graph/index.js").GraphEdge[] = [];
+      // Count of FILES that parsed successfully (not nodes, not edges).
+      // We track this explicitly because allNodes also contains symbol
+      // nodes (one per function/class/etc), so subtracting parseWarnings
+      // from allNodes.length is meaningless.
+      let parseSuccessCount = 0;
       const parseWarnings: { file: string; code: string; message: string }[] = [];
       for (const f of enumResult.files) {
         if (f.classification !== "source") continue; // skip tests + generated in T09
@@ -161,6 +171,7 @@ function stubSubcommand(
         if (parseResult.ok) {
           allNodes.push(parseResult.fileNode, ...parseResult.nodes);
           allEdges.push(...parseResult.edges);
+          parseSuccessCount++;
         } else {
           parseWarnings.push({
             file: f.relativePath,
@@ -178,7 +189,7 @@ function stubSubcommand(
         root: repo,
         coverage: {
           files_seen: enumResult.files.length,
-          files_parsed: allNodes.length > 0 ? (allNodes.length - parseWarnings.length) : 0,
+          files_parsed: parseSuccessCount,
           files_failed: parseWarnings.length,
           edges_low_confidence: allEdges.filter((e) => e.confidence === "low" || e.confidence === "unknown").length,
           parse_ms: 0,
@@ -245,7 +256,7 @@ function stubSubcommand(
         options.format === "json" ? "json" : "human";
 
       if (fmt === "json") {
-        const out = formatJson(fused, topN, signals.length);
+        const out = formatJson(fused, topN, signals.length, snapshot.coverage);
         process.stdout.write(out);
       } else {
         // Human mode: print a 1-line summary + the top-N body.
@@ -265,7 +276,7 @@ function stubSubcommand(
       if (options.outputDir) {
         const dir = options.outputDir;
         await Promise.all([
-          writeJsonReport(fused, topN, signals.length, `${dir}/report.json`),
+          writeJsonReport(fused, topN, signals.length, `${dir}/report.json`, snapshot.coverage),
           writeMarkdownReport(fused, topN, signals.length, PACKAGE_VERSION, `${dir}/report.md`),
           writeSarifReport(fused, topN, TOOL_NAME, PACKAGE_VERSION, `${dir}/report.sarif`),
         ]);
@@ -379,26 +390,29 @@ export function main(argv: string[] = process.argv): number {
       ]);
       const d = diffReports(baseReport, headReport, base, head);
       process.stdout.write(JSON.stringify(d, null, 2) + "\n");
-      // Exit-code logic for the diff command. We block on regressions
-      // (anything new or worsened), not on improvements:
-      //   1. NEW hypothesis with severity >= high → block (regression).
-      //   2. CHANGED hypothesis whose new severity is >= high AND
-      //      whose base severity was BELOW high → block (escalation).
-      //   3. RESOLVED hypotheses do NOT block (they're improvements).
-      //   4. UNCHANGED hypotheses do NOT block (status quo).
-      // The reason: a PR that fixes 5 critical issues but adds 1 new
-      // critical should still block (regression wins); a PR that only
-      // fixes issues should pass.
-      const newIsCritical = d.new_hypotheses.some(
-        (h) => SEVERITY_RANK[h.maxSeverity] >= SEVERITY_RANK.high,
-      );
-      const escalatedToHigh = d.changed_hypotheses.some((c) => {
-        const oldSev = SEVERITY_RANK[c.base.severity as "low" | "medium" | "high" | "critical"] ?? 0;
-        const newSev = SEVERITY_RANK[c.head.severity as "low" | "medium" | "high" | "critical"] ?? 0;
-        return newSev >= SEVERITY_RANK.high && oldSev < SEVERITY_RANK.high;
-      });
-      const hasRegression = newIsCritical || escalatedToHigh;
-      process.exit(hasRegression ? ExitCode.THRESHOLD : ExitCode.OK);
+      // Exit-code logic is centralized in diffExitCode() (see
+      // src/diff/compare.ts). The CLI just maps the boolean decision
+      // to FR10 exit codes. Centralizing the rule in the diff module
+      // means future T25+ extensions (e.g. --fail-on-resolved) can
+      // add rules there without touching the CLI.
+      //
+      // DeepSeek Critical #3: a future-version report.json with an
+      // unknown severity (e.g. "blocker") makes the regression check
+      // unreliable. We catch the validation error here and surface it
+      // as INTERNAL=5 so CI gates fail loud, not silent.
+      try {
+        const decision = diffExitCode(d);
+        process.stdout.write(
+          `# decision: ${decision.regression ? "regression" : "ok"} — ${decision.reason}\n`,
+        );
+        process.exit(decision.regression ? ExitCode.THRESHOLD : ExitCode.OK);
+      } catch (err) {
+        if (err instanceof InvalidSeverityError) {
+          process.stderr.write(`center-geo diff: ${err.message}\n`);
+          process.exit(ExitCode.INTERNAL);
+        }
+        throw err;
+      }
     });
 
   // `program.parse(argv)` (synchronous variant). Async action handlers

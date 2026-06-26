@@ -9,6 +9,7 @@ import { writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import type { FusedScore } from "../scoring/types.js";
+import type { CoverageReport } from "../output/format.js";
 
 /**
  * Write the JSON report to `outputPath`. The directory is created
@@ -19,12 +20,14 @@ export async function writeJsonReport(
   topN: number,
   rawSignalCount: number,
   outputPath: string,
+  coverage: CoverageReport,
 ): Promise<void> {
   const top = fused.slice(0, topN);
   const report = {
     schema_version: "1.0.0" as const,
     count: top.length,
     raw_signal_count: rawSignalCount,
+    coverage,
     hypotheses: top,
   };
   await mkdir(dirname(outputPath), { recursive: true });

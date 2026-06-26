@@ -179,3 +179,44 @@ describe("package metadata", () => {
     });
   });
 });
+
+
+describe("center-geo CLI — coverage (DeepSeek Critical #1)", () => {
+  it("coverage.files_parsed correctly counts successful parses, not graph nodes", async () => {
+    // Build a mixed fixture: 10 files, 5 intentionally broken.
+    const fs = await import("node:fs/promises");
+    const os = await import("node:os");
+    const path = await import("node:path");
+    const f = await (await import("./fixtures/synthetic.js")).createMixedFixture(10, 5);
+    try {
+      const r = runCli(["scan", "--format", "json", f.root]);
+      expect(r.status === 0 || r.status === 1).toBe(true);
+      const report = JSON.parse(r.stdout);
+      // 10 files total: 5 broken (fail to parse), 5 valid (each has 1
+      // fileNode + 1 symbol node from `export function fnN()`).
+      // DeepSeek Critical #1: the OLD code computed files_parsed as
+      // (10 - 5) = 5 (lucky coincidence with allNodes.length - parseWarnings
+      // where allNodes happened to be 10 fileNodes + 5 symbolNodes = 15).
+      // The NEW code tracks parseSuccessCount directly = 5.
+      expect(report.coverage.files_seen).toBe(10);
+      expect(report.coverage.files_parsed).toBe(5);
+      expect(report.coverage.files_failed).toBe(5);
+    } finally {
+      await f.cleanup();
+    }
+  });
+
+  it("coverage.files_parsed on clean fixture: all files parsed", async () => {
+    const f = await (await import("./fixtures/synthetic.js")).createFixture("small");
+    try {
+      const r = runCli(["scan", "--format", "json", f.root]);
+      expect(r.status === 0 || r.status === 1).toBe(true);
+      const report = JSON.parse(r.stdout);
+      expect(report.coverage.files_seen).toBe(f.fileCount);
+      expect(report.coverage.files_parsed).toBe(f.fileCount);
+      expect(report.coverage.files_failed).toBe(0);
+    } finally {
+      await f.cleanup();
+    }
+  });
+});
