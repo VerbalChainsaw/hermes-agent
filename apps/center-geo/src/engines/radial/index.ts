@@ -9,6 +9,7 @@ export {
   makeSignalId,
   isEdgeKindAllowed,
   nodeHasBoundaryTag,
+  SEVERITY_RANK,
   type Signal,
   type SignalType,
   type SignalTargetKind,

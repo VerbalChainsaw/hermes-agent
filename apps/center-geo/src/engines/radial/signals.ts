@@ -17,7 +17,7 @@
  * center-audit's job, not center-geo's.
  */
 
-import { createHash } from "node:crypto";
+import { sha256Hex16 } from "../../graph/ids.js";
 
 import type { Anchor, Confidence, EdgeKind, GraphNode } from "../../graph/index.js";
 
@@ -46,6 +46,20 @@ export type SeverityHint = "info" | "low" | "medium" | "high" | "critical";
  * string union so the type system enforces exhaustiveness.
  */
 export type RadialSignalType = "high_fan_out" | "broad_blast_radius" | "boundary_reached";
+
+/**
+ * Numeric rank for severity hints. Used by the CLI's top-N signal
+ * reporter (T09) and any future sort-by-severity code (fusion T15).
+ * Centralizing the table next to `SeverityHint` ensures new severities
+ * (e.g. "blocker" added in T12+) get a rank automatically.
+ */
+export const SEVERITY_RANK: Record<SeverityHint, number> = {
+  critical: 4,
+  high: 3,
+  medium: 2,
+  low: 1,
+  info: 0,
+};
 
 export type SignalType = RadialSignalType | string; // open-ended for future engines
 
@@ -88,7 +102,8 @@ export function makeSignalId(input: {
   const sig = `${input.geometryId}\u0000${input.type}\u0000${input.targetId}\u0000${
     JSON.stringify(input.metrics ?? {}, Object.keys(input.metrics ?? {}).sort())
   }`;
-  const hash = createHash("sha256").update(sig).digest("hex").slice(0, 16);
+  // sha256Hex16 imported from graph/ids.ts — shared with graph ids, signals, etc.
+  const hash = sha256Hex16(sig);
   return `s:${input.geometryId}:${input.type}:${input.targetId}:${hash}`;
 }
 

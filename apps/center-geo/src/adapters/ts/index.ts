@@ -103,35 +103,56 @@ export function parseFile(
     return failure;
   }
 
-  const { edges, diagnostics: importDiags } = extractImportsAndExports(fileNode, parsed.ast);
-  diagnostics.push(...importDiags);
+  // Wrap the post-parse body in try/catch so a single malformed-but-
+  // parseable file (one that yields a syntactically valid AST that
+  // still trips one of the extractors) becomes an AdapterFailure
+  // rather than crashing the whole scan loop in cli/main.ts.
+  try {
+    const { edges, diagnostics: importDiags } = extractImportsAndExports(
+      fileNode,
+      parsed.ast,
+    );
+    diagnostics.push(...importDiags);
 
-  // T06: extract symbol-level nodes (functions, classes, methods, interfaces, types, enums).
-  // Symbols are emitted as additional nodes; the import edges we already have
-  // are unrelated to symbols (different concern).
-  const { nodes: symbolNodes, edges: symbolEdges, diagnostics: symbolDiags } =
-    extractSymbols(fileNode, parsed.ast);
-  diagnostics.push(...symbolDiags);
+    // T06: extract symbol-level nodes (functions, classes, methods, interfaces, types, enums).
+    // Symbols are emitted as additional nodes; the import edges we already have
+    // are unrelated to symbols (different concern).
+    const { nodes: symbolNodes, edges: symbolEdges, diagnostics: symbolDiags } =
+      extractSymbols(fileNode, parsed.ast);
+    diagnostics.push(...symbolDiags);
 
-  // T07: extract call edges. Builds a symbol index first so we can resolve
-  // local function calls (high confidence) and imported-symbol calls
-  // (medium confidence). Unresolvable calls emit "unknown_dynamic" edges.
-  const symbolIndex = buildSymbolIndex(fileNode.path ?? "", parsed.ast);
-  const { edges: callEdges, diagnostics: callDiags } = extractCalls(
-    fileNode,
-    parsed.ast,
-    symbolIndex,
-  );
-  diagnostics.push(...callDiags);
+    // T07: extract call edges. Builds a symbol index first so we can resolve
+    // local function calls (high confidence) and imported-symbol calls
+    // (medium confidence). Unresolvable calls emit "unknown_dynamic" edges.
+    const symbolIndex = buildSymbolIndex(fileNode.path ?? "", parsed.ast);
+    const { edges: callEdges, diagnostics: callDiags } = extractCalls(
+      fileNode,
+      parsed.ast,
+      symbolIndex,
+    );
+    diagnostics.push(...callDiags);
 
-  const success: AdapterSuccess = {
-    ok: true,
-    fileNode,
-    edges: [...edges, ...symbolEdges, ...callEdges],
-    diagnostics,
-    parseMs: parsed.parseMs,
-  };
-  return { ...success, nodes: symbolNodes };
+    const success: AdapterSuccess = {
+      ok: true,
+      fileNode,
+      edges: [...edges, ...symbolEdges, ...callEdges],
+      diagnostics,
+      parseMs: parsed.parseMs,
+    };
+    return { ...success, nodes: symbolNodes };
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    const failure: AdapterFailure = {
+      ok: false,
+      code: "internal_error",
+      message: `Adapter extraction failed for ${filePath}: ${reason}`,
+      diagnostics: [
+        ...diagnostics,
+        { code: "internal_error", message: reason },
+      ],
+    };
+    return failure;
+  }
 }
 
 export { extractImportsAndExports, makeToKey } from "./imports.js";

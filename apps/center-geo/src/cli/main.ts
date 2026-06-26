@@ -15,6 +15,7 @@
  */
 
 import { Command, CommanderError } from "commander";
+import { readFile } from "node:fs/promises";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { ExitCode, PACKAGE_VERSION, type ExitCodeValue } from "../index.js";
@@ -22,7 +23,7 @@ import { loadConfig } from "../config/load.js";
 import { enumerateFiles } from "../enumerate/index.js";
 import { parseFile } from "../adapters/ts/index.js";
 import { GraphStore } from "../graph/index.js";
-import { runRadialEngine } from "../engines/radial/index.js";
+import { runRadialEngine, SEVERITY_RANK } from "../engines/radial/index.js";
 
 // Tool name — single source of truth. Mirrors the bin field in package.json
 // and the exports map key.
@@ -131,7 +132,7 @@ function stubSubcommand(
       const parseWarnings: { file: string; code: string; message: string }[] = [];
       for (const f of enumResult.files) {
         if (f.classification !== "source") continue; // skip tests + generated in T09
-        const content = await import("node:fs/promises").then((m) => m.readFile(f.absolutePath, "utf-8"));
+        const content = await readFile(f.absolutePath, "utf-8");
         const parseResult = parseFile(f.relativePath, content);
         if (parseResult.ok) {
           allNodes.push(parseResult.fileNode, ...parseResult.nodes);
@@ -148,12 +149,12 @@ function stubSubcommand(
       // 3. Build a graph snapshot + store.
       const snapshot: import("../graph/index.js").GraphSnapshot = {
         schema_version: "1.0.0",
-        tool_version: "0.1.0",
+        tool_version: PACKAGE_VERSION,
         graph_id: `scan:${repo}:${cfg.hash}`,
         root: repo,
         coverage: {
           files_seen: enumResult.files.length,
-          files_parsed: enumResult.files.length - parseWarnings.length,
+          files_parsed: allNodes.length > 0 ? (allNodes.length - parseWarnings.length) : 0,
           files_failed: parseWarnings.length,
           edges_low_confidence: allEdges.filter((e) => e.confidence === "low" || e.confidence === "unknown").length,
           parse_ms: 0,
@@ -189,9 +190,8 @@ function stubSubcommand(
       );
       if (signals.length > 0) {
         // Top 5 signals by severity.
-        const sevRank = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
         const top = [...signals]
-          .sort((a, b) => sevRank[b.severityHint] - sevRank[a.severityHint])
+          .sort((a, b) => SEVERITY_RANK[b.severityHint] - SEVERITY_RANK[a.severityHint])
           .slice(0, 5);
         for (const s of top) {
           console.error(`  ${s.severityHint.padEnd(8)} ${s.type.padEnd(22)} -> ${s.targetId}`);

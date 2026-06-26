@@ -23,6 +23,7 @@
  */
 
 import type { GraphStore } from "./store.js";
+import { sha256Hex16 } from "./ids.js";
 
 /* ── BFS (forward) ─────────────────────────────────────────────── */
 
@@ -225,10 +226,7 @@ export function stronglyConnectedComponents(
     }
   }
 
-  // Build the SCC result objects. Hash imports are static so we can
-  // use them at the top of the module (no dynamic import needed).
-  const { createHash } = require("node:crypto") as typeof import("node:crypto");
-
+  // Build the SCC result objects.
   return sccs
     .map((members): StronglyConnectedComponent | null => {
       if (members.length === 0) return null;
@@ -247,12 +245,9 @@ export function stronglyConnectedComponents(
         }
       }
       internalEdges.sort();
-      // Deterministic id: SHA-256 of the sorted member list (truncated).
-      // Same hashing approach as graph/ids.ts.
-      const idHash = createHash("sha256")
-        .update(members.join("\n"))
-        .digest("hex")
-        .slice(0, 16);
+      // Deterministic id: SHA-256 of the sorted member list, truncated
+      // to 16 hex chars via the shared sha256Hex16 helper.
+      const idHash = sha256Hex16(members.join("\n"));
       return {
         id: `scc:${idHash}`,
         members,

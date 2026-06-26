@@ -12,6 +12,8 @@
  * validator are more actionable for end users.
  */
 
+import type { EdgeKind } from "../graph/types.js";
+
 /** Glob pattern as a string. Validated as non-empty. */
 export type Glob = string;
 
@@ -50,7 +52,15 @@ export interface EngineConfig {
   enabled: boolean;
   max_depth?: number;
   max_nodes?: number;
-  allowed_edge_kinds?: string[];
+  /**
+   * Edge kinds this engine is allowed to traverse. If undefined or
+   * empty, all edge kinds are allowed (per `isEdgeKindAllowed` in
+   * engines/radial/signals.ts — both undefined and [] mean "no
+   * restriction"). This is the parsed/narrowed type, not a free-form
+   * `string[]`, so the static type system catches typos at the call
+   * site (e.g. "imports" vs "import").
+   */
+  allowed_edge_kinds?: readonly EdgeKind[];
   /** Engine-specific knobs land here. */
   [key: string]: unknown;
 }

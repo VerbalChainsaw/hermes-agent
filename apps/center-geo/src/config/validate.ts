@@ -141,11 +141,68 @@ function requireGlob(key: string, value: string, errors: ValidationError[]): boo
 const ENGINE_IDS = ["radial", "cycle", "boundary", "anomaly", "convergent"] as const;
 type EngineId = (typeof ENGINE_IDS)[number];
 
+/** All 12 EdgeKind values — used to narrow user-supplied strings. */
+const EDGE_KINDS = [
+  "import",
+  "re_export",
+  "call",
+  "reference",
+  "state_read",
+  "state_write",
+  "event_publish",
+  "event_subscribe",
+  "test_of",
+  "config",
+  "unknown_dynamic",
+  "external_call",
+] as const satisfies readonly import("../graph/types.js").EdgeKind[];
+
+/**
+ * Validate that each string in `arr` is a known EdgeKind. Returns the
+ * narrowed tuple or null if any value is invalid (errors pushed). The
+ * EDGE_KINDS list is the canonical taxonomy from graph/types.ts.
+ */
+function expectEdgeKindArray(
+  obj: Record<string, unknown>,
+  key: string,
+  required: boolean,
+  errors: ValidationError[],
+): readonly import("../graph/types.js").EdgeKind[] | null {
+  const raw = obj[key];
+  if (raw === undefined) {
+    if (required) {
+      errors.push({ path: key, message: "is required" });
+    }
+    return null;
+  }
+  if (!Array.isArray(raw)) {
+    errors.push({ path: key, message: `expected array of edge kinds, got ${typeof raw}` });
+    return null;
+  }
+  const out: import("../graph/types.js").EdgeKind[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const v = raw[i];
+    if (typeof v !== "string") {
+      errors.push({ path: `${key}[${i}]`, message: `expected string, got ${typeof v}` });
+      continue;
+    }
+    if ((EDGE_KINDS as readonly string[]).includes(v)) {
+      out.push(v as import("../graph/types.js").EdgeKind);
+    } else {
+      errors.push({
+        path: `${key}[${i}]`,
+        message: `unknown edge kind "${v}"; must be one of: ${EDGE_KINDS.join(", ")}`,
+      });
+    }
+  }
+  return out;
+}
+
 function validateEngineConfig(
   name: EngineId,
   raw: unknown,
   errors: ValidationError[],
-): { enabled: boolean; max_depth?: number; max_nodes?: number; allowed_edge_kinds?: string[] } | null {
+): { enabled: boolean; max_depth?: number; max_nodes?: number; allowed_edge_kinds?: readonly import("../graph/types.js").EdgeKind[] } | null {
   if (!isObject(raw)) {
     errors.push({ path: `engines.${name}`, message: `expected object, got ${typeof raw}` });
     return null;
@@ -153,7 +210,7 @@ function validateEngineConfig(
   const enabled = expectBoolean(raw, "enabled", true, errors);
   const max_depth = expectNumber(raw, "max_depth", false, errors);
   const max_nodes = expectNumber(raw, "max_nodes", false, errors);
-  const allowed_edge_kinds = expectStringArray(raw, "allowed_edge_kinds", false, errors);
+  const allowed_edge_kinds = expectEdgeKindArray(raw, "allowed_edge_kinds", false, errors);
 
   if (max_depth !== null && (max_depth < 0 || !Number.isInteger(max_depth))) {
     errors.push({ path: `engines.${name}.max_depth`, message: "must be a non-negative integer" });

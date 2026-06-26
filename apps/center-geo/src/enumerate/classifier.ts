@@ -11,7 +11,6 @@
  * Tests always win over generated when a file matches both (test files
  * get their own handling downstream, including the test_gap_bonus).
  */
-
 import { matchesAny, toPosixPath } from "./glob.js";
 import type { Config } from "../config/types.js";
 import type { FileClassification } from "./types.js";

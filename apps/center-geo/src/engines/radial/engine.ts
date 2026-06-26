@@ -68,7 +68,7 @@ export function runRadialEngine(
   // Config knobs with sensible defaults.
   const maxDepth = typeof config.max_depth === "number" ? config.max_depth : Infinity;
   const maxNodes = typeof config.max_nodes === "number" ? config.max_nodes : Infinity;
-  const allowedEdgeKinds = (config.allowed_edge_kinds ?? []) as readonly EdgeKind[] | undefined;
+  const allowedEdgeKinds = config.allowed_edge_kinds;
 
   // Build the union BFS result (T08 BFS supports a single seed, so
   // we run it per seed and merge).
@@ -113,7 +113,7 @@ export function runRadialEngine(
     const depth = allDepths.get(nodeId) ?? 0;
     const parentEdgeId = allParents.get(nodeId) ?? null;
     const parentEdge = parentEdgeId ? store.getEdge(parentEdgeId) : null;
-    const inBlastRadius = !seedSet.has(nodeId) || depth > 0;
+    const inBlastRadius = !seedSet.has(nodeId);
 
     // Anchor: the parent edge (if any) plus the node itself.
     const anchors: Signal["anchors"] = [];
@@ -137,7 +137,7 @@ export function runRadialEngine(
     // is a coupling risk. We measure filtered fan-out (not raw
     // fan-out) so config-driven engines focus on the kinds they
     // care about.
-    const filteredFanOut = countOutgoingFiltered(store, nodeId, allowedEdgeKinds);
+    const filteredFanOut = countFilteredEdges(store, nodeId, allowedEdgeKinds, 'out');
     // High fan-out heuristic: more than 8 allowed-kind outgoing edges
     // for MVP. T12+ will replace with a config-driven percentile.
     if (filteredFanOut > 8) {
@@ -188,7 +188,7 @@ export function runRadialEngine(
       // Cheap heuristic: if a non-seed node appears early in BFS
       // order AND has multiple inbound edges in the allowed kinds,
       // it concentrates flow from many sources.
-      const inboundCount = countIncomingFiltered(store, nodeId, allowedEdgeKinds);
+      const inboundCount = countFilteredEdges(store, nodeId, allowedEdgeKinds, 'in');
       if (inboundCount >= 3) {
         signals.push(buildSignal({
           type: "broad_blast_radius",
@@ -214,30 +214,22 @@ export function runRadialEngine(
 /* ── helpers ───────────────────────────────────────────────────── */
 
 /**
- * Count outgoing edges of `nodeId` whose kind is in `allowedKinds`.
- * If `allowedKinds` is undefined, count ALL outgoing edges.
+ * Count edges of `nodeId` whose kind is in `allowedKinds` (or ALL
+ * edges if `allowedKinds` is undefined/empty). `direction: "out"`
+ * counts outgoing edges; `direction: "in"` counts incoming edges.
  */
-function countOutgoingFiltered(
+function countFilteredEdges(
   store: GraphStore,
   nodeId: string,
   allowedKinds: readonly EdgeKind[] | undefined,
+  direction: "out" | "in",
 ): number {
+  const edgeIds =
+    direction === "out"
+      ? store.outboundEdges(nodeId)
+      : store.inboundEdges(nodeId);
   let count = 0;
-  for (const edgeId of store.outboundEdges(nodeId)) {
-    const edge = store.getEdge(edgeId);
-    if (!edge) continue;
-    if (isEdgeKindAllowed(edge.kind, allowedKinds)) count++;
-  }
-  return count;
-}
-
-function countIncomingFiltered(
-  store: GraphStore,
-  nodeId: string,
-  allowedKinds: readonly EdgeKind[] | undefined,
-): number {
-  let count = 0;
-  for (const edgeId of store.inboundEdges(nodeId)) {
+  for (const edgeId of edgeIds) {
     const edge = store.getEdge(edgeId);
     if (!edge) continue;
     if (isEdgeKindAllowed(edge.kind, allowedKinds)) count++;

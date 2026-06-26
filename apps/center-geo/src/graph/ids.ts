@@ -47,7 +47,15 @@ function sig(...parts: string[]): string {
   return parts.join("\n");
 }
 
-function sha256hex16(input: string): string {
+/**
+ * SHA-256 of `input`, first 16 hex chars. Exported so other modules
+ * (graph algorithms, enumerate, engines/radial) can produce
+ * consistent truncated SHA-256 ids without duplicating the idiom.
+ *
+ * Note: 64 bits of SHA-256 gives ~10^19 unique values; for a single
+ * repo (10k files, 100k edges) that's effectively zero collision risk.
+ */
+export function sha256Hex16(input: string): string {
   return createHash("sha256").update(input).digest("hex").slice(0, 16);
 }
 
@@ -72,7 +80,7 @@ export function makeNodeId(
   path: string | undefined,
   symbol: string,
 ): string {
-  const id = sha256hex16(sig(kind, path ?? "", symbol));
+  const id = sha256Hex16(sig(kind, path ?? "", symbol));
   return `${kind}:${id}`;
 }
 
@@ -87,7 +95,7 @@ export function fileNodeId(fileId: string): string {
   // our own format. This lets callers pass either a FileEntry.id or a
   // raw path.
   const raw = fileId.startsWith("file:") ? fileId.slice(5) : fileId;
-  const id = sha256hex16(sig("file", raw));
+  const id = sha256Hex16(sig("file", raw));
   return `file:${id}`;
 }
 
@@ -138,7 +146,7 @@ export function makeEdgeId(input: EdgeIdInput): string {
   const sortedAnchors = [...input.anchors].sort((a, b) =>
     anchorSig(a) < anchorSig(b) ? -1 : anchorSig(a) > anchorSig(b) ? 1 : 0,
   );
-  const id = sha256hex16(
+  const id = sha256Hex16(
     sig(
       input.from,
       input.to,
