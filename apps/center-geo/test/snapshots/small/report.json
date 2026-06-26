@@ -4,11 +4,11 @@
   "raw_signal_count": 9,
   "hypotheses": [
     {
-      "id": "f:154229c70396fe23",
+      "id": "f:db80994620da8b7b",
       "targetId": "file:b37fc6133ea25705",
       "targetKind": "node",
       "score": 1.25,
-      "maxSeverity": "critical",
+      "maxSeverity": "high",
       "geometries": [
         "anomaly",
         "radial"
@@ -19,7 +19,7 @@
       ],
       "contributors": [
         {
-          "id": "s:radial:high_fan_out:file:b37fc6133ea25705:6e7332ae6297d602",
+          "id": "s:radial:high_fan_out:file:b37fc6133ea25705:ba0253c9787b9d73",
           "geometryId": "radial",
           "type": "high_fan_out",
           "targetKind": "node",
@@ -27,13 +27,17 @@
           "anchors": [
             {
               "path": "src/f9.ts",
+              "range": {
+                "start_line": 1,
+                "end_line": 12
+              },
               "source": "source"
             }
           ],
           "severityHint": "medium",
           "confidenceHint": "medium",
           "metrics": {
-            "filteredFanOut": 9
+            "filteredFanOut": 10
           },
           "metadata": {
             "allowedEdgeKinds": [
@@ -49,7 +53,7 @@
           ]
         },
         {
-          "id": "s:anomaly:fan_out_anomaly:file:b37fc6133ea25705:c359de384f807b2e",
+          "id": "s:anomaly:fan_out_anomaly:file:b37fc6133ea25705:5f9b527c42cb8d38",
           "geometryId": "anomaly",
           "type": "fan_out_anomaly",
           "targetKind": "node",
@@ -57,21 +61,25 @@
           "anchors": [
             {
               "path": "src/f9.ts",
+              "range": {
+                "start_line": 1,
+                "end_line": 12
+              },
               "source": "source"
             }
           ],
-          "severityHint": "critical",
+          "severityHint": "high",
           "confidenceHint": "medium",
           "metrics": {
-            "count": 9,
-            "threshold": 0,
-            "ratioTimesHundred": null
+            "count": 10,
+            "threshold": 1,
+            "ratioTimesHundred": 1000
           },
           "metadata": {
             "metric": "outbound_edges",
-            "observedCount": 9,
-            "thresholdCount": 0,
-            "ratio": null
+            "observedCount": 10,
+            "thresholdCount": 1,
+            "ratio": 10
           },
           "limitations": [
             "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
@@ -93,11 +101,11 @@
       }
     },
     {
-      "id": "f:1b9b50a8a5ab3ed6",
+      "id": "f:7e9374088dca0893",
       "targetId": "file:0f54371f19fd5a12",
       "targetKind": "node",
       "score": 0,
-      "maxSeverity": "critical",
+      "maxSeverity": "low",
       "geometries": [
         "anomaly"
       ],
@@ -106,7 +114,7 @@
       ],
       "contributors": [
         {
-          "id": "s:anomaly:fan_out_anomaly:file:0f54371f19fd5a12:bf06f059a347837e",
+          "id": "s:anomaly:fan_out_anomaly:file:0f54371f19fd5a12:760155fbc0c7806e",
           "geometryId": "anomaly",
           "type": "fan_out_anomaly",
           "targetKind": "node",
@@ -114,21 +122,25 @@
           "anchors": [
             {
               "path": "src/f2.ts",
+              "range": {
+                "start_line": 1,
+                "end_line": 4
+              },
               "source": "source"
             }
           ],
-          "severityHint": "critical",
+          "severityHint": "low",
           "confidenceHint": "medium",
           "metrics": {
-            "count": 1,
-            "threshold": 0,
-            "ratioTimesHundred": null
+            "count": 2,
+            "threshold": 1,
+            "ratioTimesHundred": 200
           },
           "metadata": {
             "metric": "outbound_edges",
-            "observedCount": 1,
-            "thresholdCount": 0,
-            "ratio": null
+            "observedCount": 2,
+            "thresholdCount": 1,
+            "ratio": 2
           },
           "limitations": [
             "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
@@ -150,11 +162,11 @@
       }
     },
     {
-      "id": "f:a0fc722d945e2f0a",
+      "id": "f:562c3c0ab121bfa3",
       "targetId": "file:106dd9949759b4c6",
       "targetKind": "node",
       "score": 0,
-      "maxSeverity": "critical",
+      "maxSeverity": "low",
       "geometries": [
         "anomaly"
       ],
@@ -163,7 +175,7 @@
       ],
       "contributors": [
         {
-          "id": "s:anomaly:fan_out_anomaly:file:106dd9949759b4c6:4531ac70d0022237",
+          "id": "s:anomaly:fan_out_anomaly:file:106dd9949759b4c6:1b005de0d2aad625",
           "geometryId": "anomaly",
           "type": "fan_out_anomaly",
           "targetKind": "node",
@@ -171,21 +183,25 @@
           "anchors": [
             {
               "path": "src/f4.ts",
+              "range": {
+                "start_line": 1,
+                "end_line": 4
+              },
               "source": "source"
             }
           ],
-          "severityHint": "critical",
+          "severityHint": "low",
           "confidenceHint": "medium",
           "metrics": {
-            "count": 1,
-            "threshold": 0,
-            "ratioTimesHundred": null
+            "count": 2,
+            "threshold": 1,
+            "ratioTimesHundred": 200
           },
           "metadata": {
             "metric": "outbound_edges",
-            "observedCount": 1,
-            "thresholdCount": 0,
-            "ratio": null
+            "observedCount": 2,
+            "thresholdCount": 1,
+            "ratio": 2
           },
           "limitations": [
             "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
@@ -207,11 +223,11 @@
       }
     },
     {
-      "id": "f:2382fcea2f7c5b15",
+      "id": "f:3020bef100c583f4",
       "targetId": "file:39250c1ce7a64716",
       "targetKind": "node",
       "score": 0,
-      "maxSeverity": "critical",
+      "maxSeverity": "low",
       "geometries": [
         "anomaly"
       ],
@@ -220,7 +236,7 @@
       ],
       "contributors": [
         {
-          "id": "s:anomaly:fan_out_anomaly:file:39250c1ce7a64716:91040a5ce1d83731",
+          "id": "s:anomaly:fan_out_anomaly:file:39250c1ce7a64716:095a901da6959811",
           "geometryId": "anomaly",
           "type": "fan_out_anomaly",
           "targetKind": "node",
@@ -228,21 +244,25 @@
           "anchors": [
             {
               "path": "src/f7.ts",
+              "range": {
+                "start_line": 1,
+                "end_line": 4
+              },
               "source": "source"
             }
           ],
-          "severityHint": "critical",
+          "severityHint": "low",
           "confidenceHint": "medium",
           "metrics": {
-            "count": 1,
-            "threshold": 0,
-            "ratioTimesHundred": null
+            "count": 2,
+            "threshold": 1,
+            "ratioTimesHundred": 200
           },
           "metadata": {
             "metric": "outbound_edges",
-            "observedCount": 1,
-            "thresholdCount": 0,
-            "ratio": null
+            "observedCount": 2,
+            "thresholdCount": 1,
+            "ratio": 2
           },
           "limitations": [
             "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
@@ -264,11 +284,11 @@
       }
     },
     {
-      "id": "f:77e25c7eae11e626",
+      "id": "f:a343f7208a388756",
       "targetId": "file:79c9bc7180e0dd77",
       "targetKind": "node",
       "score": 0,
-      "maxSeverity": "critical",
+      "maxSeverity": "low",
       "geometries": [
         "anomaly"
       ],
@@ -277,7 +297,7 @@
       ],
       "contributors": [
         {
-          "id": "s:anomaly:fan_out_anomaly:file:79c9bc7180e0dd77:6d8fdcd0aade11bb",
+          "id": "s:anomaly:fan_out_anomaly:file:79c9bc7180e0dd77:61328b5fe1a1732b",
           "geometryId": "anomaly",
           "type": "fan_out_anomaly",
           "targetKind": "node",
@@ -285,21 +305,25 @@
           "anchors": [
             {
               "path": "src/f8.ts",
+              "range": {
+                "start_line": 1,
+                "end_line": 5
+              },
               "source": "source"
             }
           ],
-          "severityHint": "critical",
+          "severityHint": "low",
           "confidenceHint": "medium",
           "metrics": {
-            "count": 2,
-            "threshold": 0,
-            "ratioTimesHundred": null
+            "count": 3,
+            "threshold": 1,
+            "ratioTimesHundred": 300
           },
           "metadata": {
             "metric": "outbound_edges",
-            "observedCount": 2,
-            "thresholdCount": 0,
-            "ratio": null
+            "observedCount": 3,
+            "thresholdCount": 1,
+            "ratio": 3
           },
           "limitations": [
             "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
@@ -321,11 +345,11 @@
       }
     },
     {
-      "id": "f:31caaf692c0903f4",
+      "id": "f:97340a2f3f6c1b9b",
       "targetId": "file:95162c5c019186e0",
       "targetKind": "node",
       "score": 0,
-      "maxSeverity": "critical",
+      "maxSeverity": "low",
       "geometries": [
         "anomaly"
       ],
@@ -334,7 +358,7 @@
       ],
       "contributors": [
         {
-          "id": "s:anomaly:fan_out_anomaly:file:95162c5c019186e0:c854519274b07087",
+          "id": "s:anomaly:fan_out_anomaly:file:95162c5c019186e0:300ea49e89f657b5",
           "geometryId": "anomaly",
           "type": "fan_out_anomaly",
           "targetKind": "node",
@@ -342,21 +366,25 @@
           "anchors": [
             {
               "path": "src/f5.ts",
+              "range": {
+                "start_line": 1,
+                "end_line": 5
+              },
               "source": "source"
             }
           ],
-          "severityHint": "critical",
+          "severityHint": "low",
           "confidenceHint": "medium",
           "metrics": {
-            "count": 2,
-            "threshold": 0,
-            "ratioTimesHundred": null
+            "count": 3,
+            "threshold": 1,
+            "ratioTimesHundred": 300
           },
           "metadata": {
             "metric": "outbound_edges",
-            "observedCount": 2,
-            "thresholdCount": 0,
-            "ratio": null
+            "observedCount": 3,
+            "thresholdCount": 1,
+            "ratio": 3
           },
           "limitations": [
             "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
@@ -378,11 +406,11 @@
       }
     },
     {
-      "id": "f:5d37f35c7795f93d",
+      "id": "f:df9eaabf568d0be2",
       "targetId": "file:a98805ce14972512",
       "targetKind": "node",
       "score": 0,
-      "maxSeverity": "critical",
+      "maxSeverity": "low",
       "geometries": [
         "anomaly"
       ],
@@ -391,7 +419,7 @@
       ],
       "contributors": [
         {
-          "id": "s:anomaly:fan_out_anomaly:file:a98805ce14972512:3a8806ba9f7b86e3",
+          "id": "s:anomaly:fan_out_anomaly:file:a98805ce14972512:8f0ab374188dec4d",
           "geometryId": "anomaly",
           "type": "fan_out_anomaly",
           "targetKind": "node",
@@ -399,21 +427,25 @@
           "anchors": [
             {
               "path": "src/f1.ts",
+              "range": {
+                "start_line": 1,
+                "end_line": 4
+              },
               "source": "source"
             }
           ],
-          "severityHint": "critical",
+          "severityHint": "low",
           "confidenceHint": "medium",
           "metrics": {
-            "count": 1,
-            "threshold": 0,
-            "ratioTimesHundred": null
+            "count": 2,
+            "threshold": 1,
+            "ratioTimesHundred": 200
           },
           "metadata": {
             "metric": "outbound_edges",
-            "observedCount": 1,
-            "thresholdCount": 0,
-            "ratio": null
+            "observedCount": 2,
+            "thresholdCount": 1,
+            "ratio": 2
           },
           "limitations": [
             "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
@@ -435,11 +467,11 @@
       }
     },
     {
-      "id": "f:6649db01b3687a93",
+      "id": "f:2dd2f22be496dcad",
       "targetId": "file:be335e4e2e96bea0",
       "targetKind": "node",
       "score": 0,
-      "maxSeverity": "critical",
+      "maxSeverity": "low",
       "geometries": [
         "anomaly"
       ],
@@ -448,7 +480,7 @@
       ],
       "contributors": [
         {
-          "id": "s:anomaly:fan_out_anomaly:file:be335e4e2e96bea0:f550cd2ab7d494ad",
+          "id": "s:anomaly:fan_out_anomaly:file:be335e4e2e96bea0:ee2f9751a5361155",
           "geometryId": "anomaly",
           "type": "fan_out_anomaly",
           "targetKind": "node",
@@ -456,21 +488,25 @@
           "anchors": [
             {
               "path": "src/f0.ts",
+              "range": {
+                "start_line": 1,
+                "end_line": 5
+              },
               "source": "source"
             }
           ],
-          "severityHint": "critical",
+          "severityHint": "low",
           "confidenceHint": "medium",
           "metrics": {
-            "count": 2,
-            "threshold": 0,
-            "ratioTimesHundred": null
+            "count": 3,
+            "threshold": 1,
+            "ratioTimesHundred": 300
           },
           "metadata": {
             "metric": "outbound_edges",
-            "observedCount": 2,
-            "thresholdCount": 0,
-            "ratio": null
+            "observedCount": 3,
+            "thresholdCount": 1,
+            "ratio": 3
           },
           "limitations": [
             "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
