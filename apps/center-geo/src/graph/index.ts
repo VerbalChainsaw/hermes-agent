@@ -30,3 +30,5 @@ export {
   type EdgeIdInput,
   type AnchorSignature,
 } from "./ids.js";
+
+export { GraphStore, type GraphSummary, type EdgeOrderKey } from "./store.js";
