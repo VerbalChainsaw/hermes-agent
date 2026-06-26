@@ -3,14 +3,15 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
+import { ExitCode } from "./exit-codes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const repoRoot = join(__dirname, "..");
 
 /**
- * Locate Node + the built CLI entrypoint. We test the BUILT artifact,
- * not the source via tsx, because:
+ * Locate the built CLI entrypoint. We test the BUILT artifact, not the
+ * source via tsx, because:
  *
  *  1. It mirrors what users actually run (`center-geo` -> dist/cli/main.js).
  *  2. It avoids platform-specific shim resolution issues (.bin/tsx.cmd vs
@@ -32,22 +33,31 @@ function locateBuiltCli(): string {
 
 function runCli(args: string[]) {
   const cliPath = locateBuiltCli();
-  return spawnSync(process.execPath, [cliPath, ...args], {
+  const r = spawnSync(process.execPath, [cliPath, ...args], {
     encoding: "utf-8",
     timeout: 15_000,
   });
+  // Surface a clear error if the build artifact vanished between the
+  // existsSync check above and the spawn (TOCTOU). Without this, vitest
+  // would surface a confusing "spawnSync ENOENT" mid-test.
+  if (r.error && "code" in r.error && r.error.code === "ENOENT") {
+    throw new Error(
+      `Built CLI vanished mid-test at ${cliPath}. Re-run \`npm run build\`.`,
+    );
+  }
+  return r;
 }
 
 describe("center-geo CLI (T00 smoke)", () => {
   it("--version exits 0 and prints the version", () => {
     const r = runCli(["--version"]);
-    expect(r.status).toBe(0);
+    expect(r.status).toBe(ExitCode.OK);
     expect(r.stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
   it("--help exits 0 and includes the tool name and description", () => {
     const r = runCli(["--help"]);
-    expect(r.status).toBe(0);
+    expect(r.status).toBe(ExitCode.OK);
     expect(r.stdout).toMatch(/center-geo/);
     expect(r.stdout).toMatch(/CENTER-MULTIGEOMETRY/);
     expect(r.stdout).toMatch(/multi-geometry/i);
@@ -55,7 +65,7 @@ describe("center-geo CLI (T00 smoke)", () => {
 
   it("index subcommand --help exits 0 and is documented", () => {
     const r = runCli(["index", "--help"]);
-    expect(r.status).toBe(0);
+    expect(r.status).toBe(ExitCode.OK);
     expect(r.stdout).toMatch(/Index a repository/i);
     expect(r.stdout).toMatch(/--config/);
     expect(r.stdout).toMatch(/--output/);
@@ -63,30 +73,82 @@ describe("center-geo CLI (T00 smoke)", () => {
 
   it("scan subcommand --help exits 0 and is documented", () => {
     const r = runCli(["scan", "--help"]);
-    expect(r.status).toBe(0);
+    expect(r.status).toBe(ExitCode.OK);
     expect(r.stdout).toMatch(/Run a full scan/i);
     expect(r.stdout).toMatch(/--ci/);
+    // scan uses -d, --output-dir to avoid collision with index's --output
+    expect(r.stdout).toMatch(/--output-dir/);
   });
 
-  it("index without args exits non-zero (missing required arg)", () => {
+  it("index without args exits with CONFIG_ERROR (FR10 exit code 3)", () => {
+    // FR10: bad CLI input is CONFIG_ERROR, not the spec's "threshold exceeded".
     const r = runCli(["index"]);
-    // commander exits non-zero when required argument missing
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(ExitCode.CONFIG_ERROR);
   });
 
-  it("scan with no implementation exits with INTERNAL code 5", () => {
-    // T00: subcommand handlers are stubs that exit INTERNAL.
-    // Once T02/T09 land this assertion will need to change.
-    const r = runCli(["scan", "C:\\does-not-exist-yet"]);
-    expect(r.status).toBe(5);
+  it("index stub exits with INTERNAL code 5 (parity with scan)", () => {
+    // The path is a placeholder satisfying the required <repo> positional.
+    // The stub ignores it; assertions are on the exit code.
+    const r = runCli(["index", "/dev/null"]);
+    expect(r.status).toBe(ExitCode.INTERNAL);
     expect(r.stderr).toMatch(/not yet implemented/i);
+  });
+
+  it("scan stub exits with INTERNAL code 5", () => {
+    const r = runCli(["scan", "/dev/null"]);
+    expect(r.status).toBe(ExitCode.INTERNAL);
+    expect(r.stderr).toMatch(/not yet implemented/i);
+  });
+
+  it("unknown subcommand exits with INTERNAL code 5 (not THRESHOLD)", () => {
+    // FR10: an unknown subcommand is an internal state issue (we don't
+    // know what the user wanted), not a "threshold exceeded" claim.
+    const r = runCli(["bogus-subcommand"]);
+    expect(r.status).toBe(ExitCode.INTERNAL);
+    expect(r.stderr).toMatch(/unknown command/i);
+  });
+
+  it("unknown flag exits with CONFIG_ERROR code 3", () => {
+    const r = runCli(["--nope"]);
+    expect(r.status).toBe(ExitCode.CONFIG_ERROR);
+  });
+
+  it("--help --version: --version wins (last flag), exits 0", () => {
+    const r = runCli(["--help", "--version"]);
+    expect(r.status).toBe(ExitCode.OK);
+    expect(r.stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it("no subcommand exits 0 with help printed to stderr", () => {
+    // Commander exits 0 (not non-zero) when no subcommand is given;
+    // the top-level program has no required action, so absence of a
+    // subcommand is treated as a help request, not an error. The help
+    // text actually goes to stderr here (commander routes it through
+    // `process.stderr` for the help-after-no-command code path) — flag
+    // this so a future channel-routing change is visible.
+    const r = runCli([]);
+    expect(r.status).toBe(ExitCode.OK);
+    expect(r.stderr).toMatch(/Usage:/);
+    expect(r.stderr).toMatch(/Commands:/);
   });
 });
 
 describe("package metadata", () => {
-  it("exports the expected package constants", async () => {
+  it("exports the expected package constants from package.json", async () => {
     const mod = await import("../src/index.js");
     expect(mod.PACKAGE_NAME).toBe("@hermes/center-geo");
     expect(mod.PACKAGE_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it("exports ExitCode with the spec values", async () => {
+    const mod = await import("../src/index.js");
+    expect(mod.ExitCode).toEqual({
+      OK: 0,
+      THRESHOLD: 1,
+      EXTRACTION_GAP: 2,
+      CONFIG_ERROR: 3,
+      REPO_READ_ERROR: 4,
+      INTERNAL: 5,
+    });
   });
 });

@@ -4,13 +4,35 @@
  * Deterministic multi-geometry structural risk scanner for codebases.
  * Companion to center-audit.
  *
- * Status (T00): package skeleton only. Public API lands with T01+
- * (config loader, file enumerator, graph types, engines).
- *
- * The module is intentionally empty at this stage. Adding exports here
- * before they have an implementation creates a phantom API surface;
- * better to wait until the underlying layer lands.
+ * Public package surface. Engines (T08+) and adapters (T05+) import
+ * shared types and constants from here so the dependency direction is
+ * always leaf → root, never leaf → CLI module.
  */
 
-export const PACKAGE_NAME = "@hermes/center-geo";
-export const PACKAGE_VERSION = "0.1.0";
+import pkg from "../package.json" with { type: "json" };
+
+/**
+ * Exit codes from the spec (docs/01-product-requirements.md FR10). Defined
+ * as a `const` object literal with `as const` so the union type can be
+ * derived (see ExitCodeValue below). Lives at the package root so engine
+ * code (T08+) and CLI code (T00) both import from here.
+ */
+export const ExitCode = {
+  /** Scan completed, no threshold exceeded. */
+  OK: 0,
+  /** Scan completed, threshold exceeded. */
+  THRESHOLD: 1,
+  /** Scan completed with extraction gaps above configured tolerance. */
+  EXTRACTION_GAP: 2,
+  /** Configuration error. */
+  CONFIG_ERROR: 3,
+  /** Repository read error. */
+  REPO_READ_ERROR: 4,
+  /** Internal tool error. */
+  INTERNAL: 5,
+} as const;
+
+export type ExitCodeValue = (typeof ExitCode)[keyof typeof ExitCode];
+
+export const PACKAGE_NAME = pkg.name;
+export const PACKAGE_VERSION = pkg.version;
