@@ -82,9 +82,17 @@ export function formatHuman(
     lines.push("(no fused hypotheses)");
     return lines.join("\n") + "\n";
   }
+  // Severity column width is fixed at 9 chars to accommodate
+  // "critical" (the longest of the 5 known severities:
+  // info=4, low=3, medium=6, high=4, critical=8). Hardcoded so
+  // future longer severities don't break column alignment.
+  // (DeepSeek Minor #3: padEnd(8) breaks for localized or longer
+  // severity strings. Use a fixed width based on the longest known
+  // value.)
+  const SEVERITY_WIDTH = 9;
   for (const h of top) {
     lines.push(
-      `score=${h.score.toFixed(2)} ${h.maxSeverity.padEnd(8)} ${h.targetKind} -> ${h.targetId}  [${h.geometries.join(",")}]`,
+      `score=${h.score.toFixed(2)} ${h.maxSeverity.padEnd(SEVERITY_WIDTH)} ${h.targetKind} -> ${h.targetId}  [${h.geometries.join(",")}]`,
     );
   }
   if (fused.length > top.length) {

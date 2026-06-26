@@ -73,10 +73,13 @@ export function runCycleEngine(
 
     // Pick the first internal edge of the cycle as the primary
     // anchor. internalEdges is sorted (T08 guarantee), so this is
-    // deterministic across runs.
-    const firstEdgeId = scc.edges[0];
-    const firstEdge = firstEdgeId ? store.getEdge(firstEdgeId) : undefined;
-    const firstNode = scc.members[0] ? store.getNode(scc.members[0]) : undefined;
+    // deterministic across runs. isCycle SCCs always have at least
+    // 1 member and at least 1 internal edge (T08 invariant), so the
+    // `scc.members[0]` and `scc.edges[0]` lookups are guaranteed
+    // non-empty (the `?` is a defensive no-op; the runtime never
+    // produces an isCycle SCC with no members/edges).
+    const firstEdge = store.getEdge(scc.edges[0]);
+    const firstNode = store.getNode(scc.members[0]);
     const anchors: Signal["anchors"] = [];
     if (firstEdge) {
       const firstAnchor = firstEdge.anchors[0];

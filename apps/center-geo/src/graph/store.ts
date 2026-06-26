@@ -215,21 +215,17 @@ export class GraphStore {
     for (const e of this.snapshot.edges) {
       edgesByKindMap.set(e.kind, (edgesByKindMap.get(e.kind) ?? 0) + 1);
     }
+    // fanIn/fanOut can be computed directly from the index array
+    // lengths (each entry IS the count of inbound/outbound edges for
+    // a node). The previous code walked all edges to look up
+    // edgesById — same result, more allocation. (DeepSeek Minor #7.)
     const fanIn = new Map<string, number>();
-    for (const ids of this.inboundByNode.values()) {
-      for (const eid of ids) {
-        const e = this.edgesById.get(eid);
-        if (!e) continue;
-        fanIn.set(e.to, (fanIn.get(e.to) ?? 0) + 1);
-      }
+    for (const [nodeId, ids] of this.inboundByNode) {
+      if (ids.length > 0) fanIn.set(nodeId, ids.length);
     }
     const fanOut = new Map<string, number>();
-    for (const ids of this.outboundByNode.values()) {
-      for (const eid of ids) {
-        const e = this.edgesById.get(eid);
-        if (!e) continue;
-        fanOut.set(e.from, (fanOut.get(e.from) ?? 0) + 1);
-      }
+    for (const [nodeId, ids] of this.outboundByNode) {
+      if (ids.length > 0) fanOut.set(nodeId, ids.length);
     }
     const topFanIn = [...fanIn.entries()]
       .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
