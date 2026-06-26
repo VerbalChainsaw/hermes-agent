@@ -29,6 +29,7 @@ import { runBoundaryEngine } from "../engines/boundary/index.js";
 import { runAnomalyEngine } from "../engines/anomaly/index.js";
 import { runConvergentEngine } from "../engines/convergent/index.js";
 import { fuseSignals } from "../scoring/fuse.js";
+import { formatHuman, formatJson } from "../output/format.js";
 
 // Tool name — single source of truth. Mirrors the bin field in package.json
 // and the exports map key.
@@ -43,6 +44,7 @@ interface StubOptions {
   config?: string;
   output?: string;
   ci?: boolean;
+  format?: "human" | "json";
 }
 
 /**
@@ -60,6 +62,7 @@ function stubSubcommand(
       config?: boolean;
       output?: "file" | "dir";
       ci?: boolean;
+      format?: boolean;
     };
   },
 ): void {
@@ -81,6 +84,19 @@ function stubSubcommand(
   }
   if (spec.options?.ci) {
     cmd.option("--ci", "CI mode: deterministic output, threshold-based exit codes.");
+  }
+  if (spec.options?.format) {
+    cmd.option(
+      "-f, --format <fmt>",
+      "Output format: 'human' (default, stderr) or 'json' (stdout)",
+      (value: string) => {
+        if (value !== "human" && value !== "json") {
+          throw new Error(`Invalid format '${value}' (expected 'human' or 'json')`);
+        }
+        return value;
+      },
+      "human",
+    );
   }
 
   cmd.action(async (repo: string, options: StubOptions) => {
@@ -212,34 +228,32 @@ function stubSubcommand(
         ...convergentSignals,
       ];
 
-      // 5. Fuse + rank. T14 (scoring/fusion) collapses the 5 engine
-      // outputs into per-target FusedScore[]. T15 ranks them; the top
-      // config.report.top_n_hypotheses (default 20) become the report.
+      // 5. Fuse + rank + report. T14 (scoring/fusion) collapses the 5
+      // engine outputs into per-target FusedScore[]. T15 picks the top
+      // config.report.top_n_hypotheses (default 20) and emits them.
       const fused = fuseSignals(signals, cfg.config.scoring);
-      const top = fused.slice(0, cfg.config.report.top_n_hypotheses);
-      console.error(
-        `${TOOL_NAME} scan: ${allNodes.length} nodes, ${allEdges.length} edges, ` +
-          `${signals.length} signals fused into ${fused.length} hypotheses ` +
-          `(${enumResult.files.length} files, ${parseWarnings.length} parse warnings)`,
+      const topN = cfg.config.report.top_n_hypotheses;
+      const top = fused.slice(0, topN);
+
+      // Format dispatch (T15).
+      // - 'human' (default): stderr summary, machine-friendly exit code.
+      // - 'json': stdout JSON, stderr status, exit code based on severity.
+      const fmt: "human" | "json" =
+        options.format === "json" ? "json" : "human";
+
+      if (fmt === "json") {
+        const out = formatJson(fused, topN, signals.length);
+        process.stdout.write(out);
+      } else {
+        const out = formatHuman(fused, topN);
+        process.stderr.write(out);
+      }
+
+      // Exit code: 1 (threshold) if any top hypothesis has severity >= high.
+      const highSeverity = top.some((h) =>
+        SEVERITY_RANK[h.maxSeverity] >= SEVERITY_RANK.high,
       );
-      if (top.length > 0) {
-        for (const h of top.slice(0, 5)) {
-          const sev = SEVERITY_RANK[h.maxSeverity] >= SEVERITY_RANK.high ? h.maxSeverity.padEnd(8) : "        ";
-          const geomSummary = h.geometries.join(",");
-          console.error(
-            `  score=${h.score.toFixed(2)} ${sev} ${h.targetKind} -> ${h.targetId}  [${geomSummary}]`,
-          );
-        }
-        if (top.length > 5) {
-          console.error(`  ... and ${top.length - 5} more`);
-        }
-      }
-      if (parseWarnings.length > 0) {
-        console.error(`  parse warnings: ${parseWarnings.length} (first: ${parseWarnings[0].file}: ${parseWarnings[0].code})`);
-      }
-      // Stub exit: real fusion (T15) + report writers (T17-T19) land later.
-      console.error(`${TOOL_NAME} scan: graph store built. Fusion + report emit planned for T15-T19.`);
-      process.exit(ExitCode.INTERNAL);
+      process.exit(highSeverity ? ExitCode.THRESHOLD : ExitCode.OK);
     }
   });
 }
@@ -324,7 +338,7 @@ export function main(argv: string[] = process.argv): number {
     name: "scan",
     description: "Run a full scan (index + geometries + fusion + report) (T09+).",
     ticketRange: "T09+",
-    options: { config: true, output: "dir", ci: true },
+    options: { config: true, output: "dir", ci: true, format: true },
   });
 
   // `program.parse(argv)` (synchronous variant). Async action handlers
