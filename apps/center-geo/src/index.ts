@@ -36,3 +36,35 @@ export type ExitCodeValue = (typeof ExitCode)[keyof typeof ExitCode];
 
 export const PACKAGE_NAME = pkg.name;
 export const PACKAGE_VERSION = pkg.version;
+
+// Re-export the config module's public surface so engines (T08+) and
+// adapters (T05+) can do `import { Config, loadConfig } from "@hermes/center-geo"`
+// without reaching into a subpath that isn't in the exports map yet.
+export {
+  loadConfig,
+  validateConfig,
+  hashConfig,
+  canonicalise,
+  fnv1a64,
+  DEFAULT_CONFIG,
+} from "./config/index.js";
+export type {
+  LoadResult,
+  LoadSuccess,
+  LoadFailure,
+  ValidationError,
+  ValidationResult,
+  Config,
+  EnginesConfig,
+  EngineConfig,
+  BoundaryTag,
+  BoundaryCrossing,
+  BoundariesConfig,
+  ScoringConfig,
+  CIConfig,
+  CIFailOn,
+  ReportConfig,
+  FileSetConfig,
+  Glob,
+  PathPattern,
+} from "./config/index.js";

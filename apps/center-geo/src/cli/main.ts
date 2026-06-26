@@ -18,6 +18,7 @@ import { Command, CommanderError } from "commander";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { ExitCode, PACKAGE_VERSION, type ExitCodeValue } from "../index.js";
+import { loadConfig } from "../config/load.js";
 
 // Tool name — single source of truth. Mirrors the bin field in package.json
 // and the exports map key.
@@ -72,9 +73,28 @@ function stubSubcommand(
     cmd.option("--ci", "CI mode: deterministic output, threshold-based exit codes.");
   }
 
-  cmd.action((_repo: string, _options: StubOptions) => {
+  cmd.action(async (repo: string, options: StubOptions) => {
+    // Load + validate config BEFORE claiming "not yet implemented".
+    // T01 acceptance: invalid config returns ExitCode.CONFIG_ERROR=3.
+    const cfg = await loadConfig(options.config);
+    if (!cfg.ok) {
+      console.error(`${TOOL_NAME} ${spec.name}: ${cfg.message}`);
+      if (cfg.code === "validation_error" && Array.isArray(cfg.details)) {
+        for (const err of cfg.details as { path: string; message: string }[]) {
+          console.error(`  - ${err.path || "(root)"}: ${err.message}`);
+        }
+      }
+      process.exit(ExitCode.CONFIG_ERROR);
+    }
+    // Config OK — the subcommand body itself isn't implemented yet, but
+    // we proved the loader works end-to-end and the exit-code-3 path is
+    // reachable from the CLI. The next ticket (T02+ for this subcommand)
+    // will replace this stub with real indexing/scanning work; for now,
+    // surface what we have so the user knows their config was honored.
     console.error(
-      `${TOOL_NAME} ${spec.name}: not yet implemented (planned for ${spec.ticketRange}).`,
+      `${TOOL_NAME} ${spec.name}: config OK (${cfg.source}, hash=${cfg.hash}). ` +
+        `Stub exit: not yet implemented (planned for ${spec.ticketRange}). ` +
+        `Target repo: ${repo}`,
     );
     process.exit(ExitCode.INTERNAL);
   });
