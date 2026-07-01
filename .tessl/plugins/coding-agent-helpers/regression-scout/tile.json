@@ -1,0 +1,11 @@
+{
+  "name": "coding-agent-helpers/regression-scout",
+  "version": "0.1.2",
+  "summary": "Use when the user wants regression hunting after a change. Identify nearby flows, shared code paths, error states, and configuration edges that may have broken even if the main fix works. Good triggers include \"check for regressions\", \"what else might this have broken\", and \"test the surrounding area\".",
+  "private": false,
+  "skills": {
+    "regression-scout": {
+      "path": "skills/regression-scout/SKILL.md"
+    }
+  }
+}

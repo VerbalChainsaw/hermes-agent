@@ -26,6 +26,19 @@ reviewing any change:
   high. Most new capability should arrive as a CLI command + skill, a
   service-gated tool, or a plugin — not as core surface.
 
+## Repo-local Tessl context
+
+If this repo has a `tessl.json`, treat `./.tessl/plugins/**/SKILL.md` as
+repo-local coding context, not inert vendor files. Read the relevant installed
+plugin skill before broad review/audit work. Hermes reads `AGENTS.md` raw — it
+will not auto-follow pointer-only Tessl files for you.
+
+## Repo-local Aider context
+
+If this repo has `.aider.conf.yml` or `.aiderignore`, keep them. They are the
+repo-level Aider enforcement surface (map-token cap + repo-map scoping), not
+throwaway local chatter files.
+
 ## Contribution Rubric — What We Want / What We Don't
 
 This is the project's intent layer. Use it two ways:

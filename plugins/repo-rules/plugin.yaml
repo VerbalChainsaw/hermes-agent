@@ -1,0 +1,6 @@
+name: repo-rules
+version: 0.1.0
+description: "Explicit repo-local rules stored under <repo>/.hermes/repo-rules.json and injected into turns via pre_llm_call."
+author: "NousResearch"
+hooks:
+  - pre_llm_call

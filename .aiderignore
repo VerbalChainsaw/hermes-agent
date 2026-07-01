@@ -1,0 +1,24 @@
+# ponytail: keep Aider's repo-map on the core code, not docs/build/test sprawl.
+.github/
+.plans/
+assets/
+datagen-config-examples/
+docker/
+docs/
+locales/
+nix/
+optional-mcps/
+optional-skills/
+packaging/
+skills/
+tests/
+web/
+website/
+apps/desktop/dist/
+apps/desktop/release/
+node_modules/
+venv/
+.venv/
+.hermes/
+logs/
+scripts/out/

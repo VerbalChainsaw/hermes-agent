@@ -137,3 +137,9 @@ RELEASE_v*.md
 # Desktop demo-run scratch output (hermes writes demo/*.txt during recorded
 # walkthroughs). Throwaway artifacts, never part of the app.
 apps/desktop/demo/
+# Local install-method stamp for source / pip checkouts. Runtime state, not code.
+.install_method
+# Keep Aider chatter/cache local, but track repo-level enforcement files.
+.aider*
+!.aider.conf.yml
+!.aiderignore

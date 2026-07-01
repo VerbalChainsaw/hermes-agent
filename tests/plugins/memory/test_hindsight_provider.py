@@ -426,6 +426,7 @@ class TestConfig:
 
         monkeypatch.setitem(sys.modules, "hindsight", SimpleNamespace(HindsightEmbedded=FakeHindsightEmbedded))
         monkeypatch.setattr("plugins.memory.hindsight._check_local_runtime", lambda: (True, ""))
+        monkeypatch.setattr("tools.lazy_deps.ensure", lambda *args, **kwargs: None)
 
         p = HindsightMemoryProvider()
         p._mode = "local_embedded"
@@ -443,6 +444,81 @@ class TestConfig:
         assert captured["idle_timeout"] == 0
         assert captured["llm_provider"] == "openai"
 
+    def test_get_client_uses_legacy_profile_env_key_when_hermes_env_missing(self, tmp_path, monkeypatch):
+        captured = {}
+        user_home = tmp_path / "user-home"
+        profile_env = user_home / ".hindsight" / "profiles" / "hermes.env"
+        profile_env.parent.mkdir(parents=True, exist_ok=True)
+        profile_env.write_text(
+            "HINDSIGHT_API_LLM_API_KEY=legacy-key\n"
+            "HINDSIGHT_API_LLM_PROVIDER=openai\n"
+            "HINDSIGHT_API_LLM_MODEL=MiniMax-M2.7\n"
+            "HINDSIGHT_API_LLM_BASE_URL=https://api.minimax.io/v1\n"
+        )
+        monkeypatch.setenv("HOME", str(user_home))
+        monkeypatch.setenv("USERPROFILE", str(user_home))
+
+        class FakeHindsightEmbedded:
+            def __init__(self, **kwargs):
+                captured.update(kwargs)
+
+        monkeypatch.setitem(sys.modules, "hindsight", SimpleNamespace(HindsightEmbedded=FakeHindsightEmbedded))
+        monkeypatch.setattr("plugins.memory.hindsight._check_local_runtime", lambda: (True, ""))
+        monkeypatch.setattr("tools.lazy_deps.ensure", lambda *args, **kwargs: None)
+
+        p = HindsightMemoryProvider()
+        p._mode = "local_embedded"
+        p._config = {
+            "profile": "hermes",
+            "llm_provider": "openai_compatible",
+            "llm_model": "MiniMax-M2.7",
+        }
+        p._llm_base_url = "https://api.minimax.io/v1"
+
+        p._get_client()
+
+        assert captured["llm_api_key"] == "legacy-key"
+
+    def test_load_config_bootstraps_local_embedded_from_legacy_env(self, tmp_path, monkeypatch):
+        hermes_home = tmp_path / "hermes-home"
+        user_home = tmp_path / "user-home"
+        shared_env = user_home / ".hindsight" / ".env"
+        shared_env.parent.mkdir(parents=True, exist_ok=True)
+        shared_env.write_text(
+            "HINDSIGHT_API_LLM_PROVIDER=openai\n"
+            "HINDSIGHT_API_LLM_API_KEY=legacy-key\n"
+            "HINDSIGHT_API_LLM_MODEL=MiniMax-M2.7\n"
+            "HINDSIGHT_API_LLM_BASE_URL=https://api.minimax.io/v1\n"
+            "HINDSIGHT_API_PORT=9177\n"
+            "HINDSIGHT_EMBED_DAEMON_IDLE_TIMEOUT=0\n"
+        )
+        monkeypatch.setenv("HOME", str(user_home))
+        monkeypatch.setenv("USERPROFILE", str(user_home))
+        monkeypatch.setattr("plugins.memory.hindsight.get_hermes_home", lambda: hermes_home)
+
+        cfg = _load_config()
+
+        assert cfg["mode"] == "local_embedded"
+        assert cfg["profile"] == "hermes"
+        assert cfg["llm_provider"] == "openai_compatible"
+        assert cfg["llm_model"] == "MiniMax-M2.7"
+        assert cfg["llm_base_url"] == "https://api.minimax.io/v1"
+        assert cfg["api_url"] == "http://localhost:9177"
+        assert cfg["idle_timeout"] == 0
+
+    def test_check_local_runtime_ensures_local_package(self, monkeypatch):
+        import plugins.memory.hindsight as hindsight_mod
+
+        ensure_calls = []
+        monkeypatch.setattr("tools.lazy_deps.ensure", lambda feature, prompt=False: ensure_calls.append((feature, prompt)))
+        monkeypatch.setattr("importlib.import_module", lambda name: SimpleNamespace())
+
+        available, reason = hindsight_mod._check_local_runtime()
+
+        assert available is True
+        assert reason is None
+        assert ensure_calls == [("memory.hindsight-local", False)]
+
 
 class TestPostSetup:
     def test_setup_cancel_at_mode_picker_writes_nothing(self, tmp_path, monkeypatch):
@@ -450,6 +526,7 @@ class TestPostSetup:
         user_home = tmp_path / "user-home"
         user_home.mkdir()
         monkeypatch.setenv("HOME", str(user_home))
+        monkeypatch.setenv("USERPROFILE", str(user_home))
         monkeypatch.setattr("plugins.memory.hindsight.get_hermes_home", lambda: hermes_home)
 
         save_config = MagicMock()
@@ -477,6 +554,7 @@ class TestPostSetup:
         user_home = tmp_path / "user-home"
         user_home.mkdir()
         monkeypatch.setenv("HOME", str(user_home))
+        monkeypatch.setenv("USERPROFILE", str(user_home))
         monkeypatch.setattr("plugins.memory.hindsight.get_hermes_home", lambda: hermes_home)
 
         selections = iter([1, _CANCELLED])  # local_embedded, then cancel LLM picker
@@ -505,6 +583,7 @@ class TestPostSetup:
         user_home = tmp_path / "user-home"
         user_home.mkdir()
         monkeypatch.setenv("HOME", str(user_home))
+        monkeypatch.setenv("USERPROFILE", str(user_home))
 
         selections = iter([1, 0])  # local_embedded, openai
         monkeypatch.setattr("hermes_cli.memory_setup._curses_select", lambda *args, **kwargs: next(selections))
@@ -539,6 +618,7 @@ class TestPostSetup:
         user_home = tmp_path / "user-home"
         user_home.mkdir()
         monkeypatch.setenv("HOME", str(user_home))
+        monkeypatch.setenv("USERPROFILE", str(user_home))
 
         selections = iter([1, 0])  # local_embedded, openai
         monkeypatch.setattr("hermes_cli.memory_setup._curses_select", lambda *args, **kwargs: next(selections))
@@ -562,6 +642,7 @@ class TestPostSetup:
         user_home = tmp_path / "user-home"
         user_home.mkdir()
         monkeypatch.setenv("HOME", str(user_home))
+        monkeypatch.setenv("USERPROFILE", str(user_home))
 
         selections = iter([1, 0])  # local_embedded, openai
         monkeypatch.setattr("hermes_cli.memory_setup._curses_select", lambda *args, **kwargs: next(selections))
@@ -589,6 +670,7 @@ class TestPostSetup:
         user_home = tmp_path / "user-home"
         user_home.mkdir()
         monkeypatch.setenv("HOME", str(user_home))
+        monkeypatch.setenv("USERPROFILE", str(user_home))
         monkeypatch.setattr("plugins.memory.hindsight.get_hermes_home", lambda: hermes_home)
 
         existing_config = {

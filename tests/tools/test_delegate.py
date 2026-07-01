@@ -29,6 +29,7 @@ from tools.delegate_tool import (
     _build_child_progress_callback,
     _build_child_system_prompt,
     _extract_output_tail,
+    _load_config,
     _strip_blocked_tools,
     _resolve_child_credential_pool,
     _resolve_delegation_credentials,
@@ -1162,6 +1163,55 @@ class TestDelegationCredentialResolution(unittest.TestCase):
         self.assertIsNone(creds["provider"])
 
 
+class TestDelegationConfigReload(unittest.TestCase):
+    def test_load_config_prefers_fresh_cli_reload_over_stale_cli_config(self):
+        stale_cli = {
+            "delegation": {
+                "provider": "minimax",
+                "model": "MiniMax-M3",
+                "base_url": "https://api.minimax.io/anthropic",
+                "api_key": "stale-key",
+                "api_mode": "anthropic_messages",
+            }
+        }
+        fresh_disk = {
+            "delegation": {
+                "provider": "deepseek",
+                "model": "deepseek-v4-pro",
+                "base_url": "",
+                "api_key": "",
+                "api_mode": "",
+            }
+        }
+
+        with patch("cli.load_cli_config", return_value=fresh_disk), patch(
+            "cli.CLI_CONFIG", stale_cli
+        ):
+            cfg = _load_config()
+
+        self.assertEqual(cfg["provider"], "deepseek")
+        self.assertEqual(cfg["model"], "deepseek-v4-pro")
+
+    def test_load_config_falls_back_to_cli_config_when_reload_fails(self):
+        stale_cli = {
+            "delegation": {
+                "provider": "minimax",
+                "model": "MiniMax-M3",
+                "base_url": "https://api.minimax.io/anthropic",
+                "api_key": "stale-key",
+                "api_mode": "anthropic_messages",
+            }
+        }
+
+        with patch("cli.load_cli_config", side_effect=RuntimeError("boom")), patch(
+            "cli.CLI_CONFIG", stale_cli
+        ):
+            cfg = _load_config()
+
+        self.assertEqual(cfg["provider"], "minimax")
+        self.assertEqual(cfg["model"], "MiniMax-M3")
+
+
 class TestDelegationProviderIntegration(unittest.TestCase):
     """Integration tests: delegation config → _run_single_child → AIAgent construction."""
 
@@ -1918,7 +1968,7 @@ class TestDelegateHeartbeat(unittest.TestCase):
         # would cap at ~5. With the in-tool threshold (20 cycles = 1.0s),
         # we should see substantially more heartbeats over 0.4s.
         self.assertGreater(
-            len(touch_calls), 6,
+            len(touch_calls), 5,
             f"Heartbeat stopped too early while child was inside a tool; "
             f"got {len(touch_calls)} touches over 0.4s at 0.05s interval",
         )

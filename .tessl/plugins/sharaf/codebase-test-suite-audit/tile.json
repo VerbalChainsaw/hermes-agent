@@ -1,0 +1,11 @@
+{
+  "name": "sharaf/codebase-test-suite-audit",
+  "version": "0.2.20",
+  "summary": "Use when the user wants a test suite audit, test quality or reliability review, regression-protection review, unit/integration/e2e test review, coverage or CI signal assessment, flaky CI investigation, fixture-realism review, spec-drift review, or generated-test validation for AI/LLM/agent-written code. Produces severity-ranked findings for weak assertions, oracle gaps, brittle fixtures, over-mocking, CI trust, and generated-code test risks.",
+  "private": false,
+  "skills": {
+    "codebase-test-suite-audit": {
+      "path": "skills/codebase-test-suite-audit/SKILL.md"
+    }
+  }
+}

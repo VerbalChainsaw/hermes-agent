@@ -1,0 +1,21 @@
+{
+  "name": "hermes-agent",
+  "mode": "vendored",
+  "dependencies": {
+    "tessl/code-review": {
+      "version": "0.0.1"
+    },
+    "jbvc/security-review": {
+      "version": "0.1.0"
+    },
+    "sharaf/codebase-test-suite-audit": {
+      "version": "0.2.20"
+    },
+    "coding-agent-helpers/regression-scout": {
+      "version": "0.1.2"
+    },
+    "coding-agent-helpers/skeptic-verifier": {
+      "version": "0.1.2"
+    }
+  }
+}

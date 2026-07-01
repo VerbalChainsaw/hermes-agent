@@ -1,0 +1,11 @@
+{
+  "name": "coding-agent-helpers/skeptic-verifier",
+  "version": "0.1.2",
+  "summary": "Use when the user wants an adversarial double-check of a code or config change. Run the strongest checks available, try to break the claim, look for edge cases and hidden regressions, and return PASS, PARTIAL, or FAIL with evidence. Good triggers include \"poke holes in this\", \"stress test this change\", \"double check this fix\", and \"try to break it\".",
+  "private": false,
+  "skills": {
+    "skeptic-verifier": {
+      "path": "skills/skeptic-verifier/SKILL.md"
+    }
+  }
+}

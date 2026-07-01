@@ -2809,17 +2809,29 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
 
 
 def _load_config() -> dict:
-    """Load delegation config from CLI_CONFIG or persistent config.
+    """Load the current delegation config.
 
-    Checks the runtime config (cli.py CLI_CONFIG) first, then falls back
-    to the persistent config (hermes_cli/config.py load_config()) so that
-    ``delegation.model`` / ``delegation.provider`` are picked up regardless
-    of the entry point (CLI, gateway, cron).
+    Prefer a fresh CLI-side disk reload when running inside the interactive
+    TTY so ``hermes config set delegation.*`` takes effect on the next
+    ``delegate_task`` call without requiring ``/reset``.  Fall back to the
+    in-memory ``cli.CLI_CONFIG`` snapshot if the reload path fails, then to the
+    shared persistent loader for non-CLI entry points (gateway, cron, tests).
     """
     try:
-        from cli import CLI_CONFIG
+        import cli
 
-        cfg = CLI_CONFIG.get("delegation") or {}
+        load_cli_config = getattr(cli, "load_cli_config", None)
+        if callable(load_cli_config):
+            try:
+                full = load_cli_config() or {}
+            except Exception:
+                full = None
+            if isinstance(full, dict):
+                cfg = full.get("delegation") or {}
+                if cfg:
+                    return cfg
+
+        cfg = (getattr(cli, "CLI_CONFIG", None) or {}).get("delegation") or {}
         if cfg:
             return cfg
     except Exception:

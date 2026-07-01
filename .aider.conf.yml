@@ -1,0 +1,11 @@
+# ponytail: cap Aider's repo-map in this 5k+ file monorepo; pass --file for the exact surface.
+map-tokens: 1024
+model: minimax/MiniMax-M3
+weak-model: minimax/MiniMax-M2.5
+edit-format: diff
+env-file: /c/Hermes/.env
+no-auto-commits: true
+auto-commits: false
+auto-lint: false
+show-model-warnings: false
+check-model-accepts-settings: false

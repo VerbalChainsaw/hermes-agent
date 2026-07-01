@@ -133,6 +133,13 @@ def _check_local_runtime() -> tuple[bool, str | None]:
     a broken local memory backend.
     """
     try:
+        from tools.lazy_deps import ensure as _lazy_ensure
+        _lazy_ensure("memory.hindsight-local", prompt=False)
+    except ImportError:
+        pass
+    except Exception as exc:
+        return False, str(exc)
+    try:
         importlib.import_module("hindsight")
         importlib.import_module("hindsight_embed.daemon_embed_manager")
         return True, None
@@ -352,7 +359,8 @@ def _load_config() -> dict:
     Resolution order:
       1. $HERMES_HOME/hindsight/config.json  (profile-scoped)
       2. ~/.hindsight/config.json             (legacy, shared)
-      3. Environment variables
+      3. Legacy ~/.hindsight/.env + ~/.hindsight/profiles/<name>.env
+      4. Environment variables
     """
     from pathlib import Path
 
@@ -371,6 +379,20 @@ def _load_config() -> dict:
             return json.loads(legacy_path.read_text(encoding="utf-8"))
         except Exception:
             pass
+
+    explicit_env_present = any(
+        os.environ.get(key)
+        for key in (
+            "HINDSIGHT_MODE",
+            "HINDSIGHT_API_KEY",
+            "HINDSIGHT_API_URL",
+            "HINDSIGHT_LLM_API_KEY",
+        )
+    )
+    if not explicit_env_present:
+        legacy_embedded = _config_from_legacy_embedded_env()
+        if legacy_embedded:
+            return legacy_embedded
 
     return {
         "mode": os.environ.get("HINDSIGHT_MODE", "cloud"),
@@ -504,19 +526,107 @@ def _load_simple_env(path) -> dict[str, str]:
     return values
 
 
+def _load_legacy_embedded_env(config: dict[str, Any] | None = None) -> dict[str, str]:
+    """Load legacy embedded-daemon env files.
+
+    Older installs wrote daemon settings to ``~/.hindsight/.env`` and newer
+    profile-scoped installs wrote them to ``~/.hindsight/profiles/<name>.env``.
+    Merge both, with the profile env winning when both exist.
+    """
+    from pathlib import Path
+
+    cfg = dict(config or {})
+    shared_env = Path.home() / ".hindsight" / ".env"
+    profile_env = _embedded_profile_env_path(cfg)
+
+    values: dict[str, str] = {}
+    for path in (shared_env, profile_env):
+        values.update(_load_simple_env(path))
+    return values
+
+
+def _resolve_embedded_llm_api_key(config: dict[str, Any], *, llm_api_key: str | None = None) -> str:
+    """Resolve the embedded-daemon LLM key across modern + legacy locations."""
+    if llm_api_key:
+        return str(llm_api_key)
+
+    current_key = (
+        config.get("llmApiKey")
+        or config.get("llm_api_key")
+        or os.environ.get("HINDSIGHT_LLM_API_KEY", "")
+    )
+    if current_key:
+        return str(current_key)
+
+    legacy_env = _load_legacy_embedded_env(config)
+    return str(legacy_env.get("HINDSIGHT_API_LLM_API_KEY", ""))
+
+
+def _config_from_legacy_embedded_env() -> dict[str, Any] | None:
+    """Infer a modern local_embedded config from legacy ~/.hindsight env files."""
+    legacy_env = _load_legacy_embedded_env()
+    if not any(
+        legacy_env.get(key)
+        for key in (
+            "HINDSIGHT_API_LLM_PROVIDER",
+            "HINDSIGHT_API_LLM_MODEL",
+            "HINDSIGHT_API_LLM_API_KEY",
+            "HINDSIGHT_API_LLM_BASE_URL",
+        )
+    ):
+        return None
+
+    provider = str(legacy_env.get("HINDSIGHT_API_LLM_PROVIDER", "") or "openai").strip()
+    base_url = str(legacy_env.get("HINDSIGHT_API_LLM_BASE_URL", "") or "").strip()
+
+    # ponytail: legacy daemon env collapses custom OpenAI-wire providers to
+    # `openai`; a custom base URL is enough to reconstruct the old intent.
+    llm_provider = "openai_compatible" if provider == "openai" and base_url else provider
+
+    config: dict[str, Any] = {
+        "mode": "local_embedded",
+        "profile": "hermes",
+        "llm_provider": llm_provider,
+        "llm_model": str(legacy_env.get("HINDSIGHT_API_LLM_MODEL", "") or "").strip(),
+        "idle_timeout": _parse_int_setting(
+            legacy_env.get("HINDSIGHT_EMBED_DAEMON_IDLE_TIMEOUT"),
+            _DEFAULT_IDLE_TIMEOUT,
+        ),
+        "timeout": _parse_int_setting(os.environ.get("HINDSIGHT_TIMEOUT"), _DEFAULT_TIMEOUT),
+    }
+    if base_url:
+        config["llm_base_url"] = base_url
+
+    port = str(legacy_env.get("HINDSIGHT_API_PORT", "") or "").strip()
+    if port:
+        config["api_url"] = f"http://localhost:{port}"
+
+    bank_id = str(os.environ.get("HINDSIGHT_BANK_ID", "") or "").strip()
+    if bank_id:
+        config["bank_id"] = bank_id
+
+    budget = str(os.environ.get("HINDSIGHT_BUDGET", "") or "").strip()
+    if budget:
+        config["budget"] = budget
+
+    logger.info(
+        "Hindsight: inferred local_embedded config from legacy ~/.hindsight env files"
+    )
+    return config
+
+
 def _build_embedded_profile_env(config: dict[str, Any], *, llm_api_key: str | None = None) -> dict[str, str]:
     """Build the profile-scoped env file that standalone hindsight-embed consumes."""
-    current_key = llm_api_key
-    if current_key is None:
-        current_key = (
-            config.get("llmApiKey")
-            or config.get("llm_api_key")
-            or os.environ.get("HINDSIGHT_LLM_API_KEY", "")
-        )
+    current_key = _resolve_embedded_llm_api_key(config, llm_api_key=llm_api_key)
+    legacy_env = _load_legacy_embedded_env(config)
 
-    current_provider = config.get("llm_provider", "")
-    current_model = config.get("llm_model", "")
-    current_base_url = config.get("llm_base_url") or os.environ.get("HINDSIGHT_API_LLM_BASE_URL", "")
+    current_provider = config.get("llm_provider") or legacy_env.get("HINDSIGHT_API_LLM_PROVIDER", "")
+    current_model = config.get("llm_model") or legacy_env.get("HINDSIGHT_API_LLM_MODEL", "")
+    current_base_url = (
+        config.get("llm_base_url")
+        or os.environ.get("HINDSIGHT_API_LLM_BASE_URL", "")
+        or legacy_env.get("HINDSIGHT_API_LLM_BASE_URL", "")
+    )
 
     # The embedded daemon expects OpenAI wire format for these providers.
     daemon_provider = "openai" if current_provider in {"openai_compatible", "openrouter"} else current_provider
@@ -1021,23 +1131,24 @@ class HindsightMemoryProvider(MemoryProvider):
                     )
                 try:
                     from tools.lazy_deps import ensure as _lazy_ensure
-                    _lazy_ensure("memory.hindsight", prompt=False)
+                    _lazy_ensure("memory.hindsight-local", prompt=False)
                 except ImportError:
                     pass
                 except Exception as _e:
                     raise ImportError(str(_e))
                 from hindsight import HindsightEmbedded
                 HindsightEmbedded.__del__ = lambda self: None
-                llm_provider = self._config.get("llm_provider", "")
+                cfg = self._config or {}
+                llm_provider = cfg.get("llm_provider", "")
                 if llm_provider in {"openai_compatible", "openrouter"}:
                     llm_provider = "openai"
                 logger.debug("Creating HindsightEmbedded client (profile=%s, provider=%s)",
-                             self._config.get("profile", "hermes"), llm_provider)
-                kwargs = dict(
-                    profile=self._config.get("profile", "hermes"),
+                             cfg.get("profile", "hermes"), llm_provider)
+                kwargs: dict[str, Any] = dict(
+                    profile=cfg.get("profile", "hermes"),
                     llm_provider=llm_provider,
-                    llm_api_key=self._config.get("llmApiKey") or self._config.get("llm_api_key") or os.environ.get("HINDSIGHT_LLM_API_KEY", ""),
-                    llm_model=self._config.get("llm_model", ""),
+                    llm_api_key=_resolve_embedded_llm_api_key(cfg),
+                    llm_model=cfg.get("llm_model", ""),
                 )
                 if self._llm_base_url:
                     kwargs["llm_base_url"] = self._llm_base_url
