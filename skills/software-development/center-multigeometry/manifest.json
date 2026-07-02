@@ -1,0 +1,48 @@
+{
+  "name": "center-multigeometry",
+  "display_name": "CENTER-MULTIGEOMETRY",
+  "skill_name": "center-multigeometry",
+  "category": "software-development",
+  "version": "1.0.0",
+  "description": "Use for structural risk maps / multi-geometry code scans.",
+  "canonical_repo": "C:/hermes/hermes-agent/skills/software-development/center-multigeometry",
+  "app_root": "C:/hermes/hermes-agent/apps/center-geo",
+  "scripts": {
+    "validate": "validate_skill.py",
+    "install": "install_skill.py"
+  },
+  "spec_sources": [
+    "C:/Users/zerop/Downloads/center-multigeometry-requirements/center-multigeometry-requirements/docs/10-skill-draft.md",
+    "C:/Users/zerop/Downloads/center-multigeometry-requirements/center-multigeometry-requirements/docs/01-product-requirements.md",
+    "C:/Users/zerop/Downloads/center-multigeometry-requirements/center-multigeometry-requirements/docs/06-reporting-and-cli.md"
+  ],
+  "distribution": {
+    "targets": [
+      {
+        "id": "hermes",
+        "path": "C:/Hermes/skills/software-development/center-multigeometry",
+        "mode": "skill_md_only"
+      },
+      {
+        "id": "mavis",
+        "path": "C:/Users/zerop/.mavis/skills/center-multigeometry",
+        "mode": "skill_md_only"
+      },
+      {
+        "id": "opencode",
+        "path": "C:/Users/zerop/.config/opencode/skills/center-multigeometry",
+        "mode": "full"
+      },
+      {
+        "id": "claude",
+        "path": "C:/Users/zerop/.claude/skills/center-multigeometry",
+        "mode": "full"
+      },
+      {
+        "id": "codex",
+        "path": "C:/Users/zerop/.codex/skills/center-multigeometry",
+        "mode": "full"
+      }
+    ]
+  }
+}
