@@ -61,29 +61,34 @@ const reportMeta = {
 /* ── human format ──────────────────────────────────────────────── */
 
 describe("formatHuman", () => {
-  it("emits one line per hypothesis with score, severity, target, geometries", () => {
+  it("emits one deterministic line per hypothesis with score, severity, target, and geometries", () => {
     const out = formatHuman([
       fused({ targetId: "a", score: 1.5, maxSeverity: "high", geometries: ["anomaly", "radial"] }),
       fused({ targetId: "b", score: 0.5, maxSeverity: "low", geometries: ["boundary"] }),
     ], 5);
-    expect(out).toMatch(/score=1\.50 high\s+node -> a/);
-    expect(out).toMatch(/score=0\.50 low\s+node -> b/);
+    const lines = out.trimEnd().split("\n");
+    expect(lines).toEqual([
+      "score=1.50 high      node -> a  [anomaly,radial]",
+      "score=0.50 low       node -> b  [boundary]",
+    ]);
   });
 
-  it("caps output at topN", () => {
+  it("caps output at topN and emits an overflow line", () => {
     const out = formatHuman([
       fused({ targetId: "a", score: 1 }),
       fused({ targetId: "b", score: 0.5 }),
       fused({ targetId: "c", score: 0.25 }),
     ], 2);
-    expect(out).toMatch(/\ba\b/);
-    expect(out).toMatch(/\bb\b/);
-    expect(out).not.toMatch(/\bc\b/);
-    expect(out).toContain("... and 1 more");
+    const lines = out.trimEnd().split("\n");
+    expect(lines).toEqual([
+      "score=1.00 info      node -> a  []",
+      "score=0.50 info      node -> b  []",
+      "... and 1 more",
+    ]);
   });
 
-  it("returns '(no fused hypotheses)' when empty", () => {
-    expect(formatHuman([], 5)).toContain("(no fused hypotheses)");
+  it("returns exactly '(no fused hypotheses)' when empty", () => {
+    expect(formatHuman([], 5)).toBe("(no fused hypotheses)\n");
   });
 });
 

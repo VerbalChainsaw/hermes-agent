@@ -154,7 +154,7 @@ describe("writeJsonReport", () => {
 /* ── Markdown report (T18) ──────────────────────────────────────── */
 
 describe("writeMarkdownReport", () => {
-  it("writes a markdown file with the required report sections", async () => {
+  it("writes markdown with the required H2 sections in stable order plus one hypothesis and one packet block", async () => {
     const dir = await mkdtemp(join(tmpdir(), "cg-report-"));
     try {
       const out = join(dir, "report.md");
@@ -166,26 +166,36 @@ describe("writeMarkdownReport", () => {
         coverage,
       });
       const md = await readFile(out, "utf-8");
-      expect(md).toContain("# CENTER-MULTIGEOMETRY Report");
-      expect(md).toContain("These are structural risk hypotheses derived from graph evidence.");
-      expect(md).toContain("## Executive summary");
-      expect(md).toContain("## Scan frame");
-      expect(md).toContain("## Coverage and extraction gaps");
-      expect(md).toContain("## Top hypotheses");
-      expect(md).toContain("## Geometry summaries");
-      expect(md).toContain("## Boundary findings");
-      expect(md).toContain("## Cycle findings");
-      expect(md).toContain("## Anomaly-only leads");
-      expect(md).toContain("## Convergent dependencies");
-      expect(md).toContain("## Agent investigation packets");
-      expect(md).toContain("## Non-goals and limitations");
-      expect(md).toContain("## Appendix: config hash and engine versions");
+      const lines = md.split("\n");
+      expect(lines[0]).toBe("# CENTER-MULTIGEOMETRY Report");
+      expect(lines[2]).toBe("These are structural risk hypotheses derived from graph evidence. They are not confirmed defects until reproduced or proven by a focused audit.");
+      const h2 = lines.filter((line) => line.startsWith("## "));
+      expect(h2).toEqual([
+        "## Executive summary",
+        "## Scan frame",
+        "## Coverage and extraction gaps",
+        "## Top hypotheses",
+        "## Geometry summaries",
+        "## Boundary findings",
+        "## Cycle findings",
+        "## Anomaly-only leads",
+        "## Convergent dependencies",
+        "## Agent investigation packets",
+        "## Non-goals and limitations",
+        "## Appendix: config hash and engine versions",
+      ]);
+      expect(lines).toContain("- Files indexed: 10");
+      expect(lines).toContain("- Engines run: radial");
+      const hypothesisBlocks = lines.filter((line) => /^### H\d{3} - /.test(line));
+      const packetBlocks = lines.filter((line) => /^### Packet H\d{3}$/.test(line));
+      expect(hypothesisBlocks).toHaveLength(1);
+      expect(packetBlocks).toEqual(["### Packet H001"]);
     } finally {
       await rm(dir, { recursive: true });
     }
   });
 
-  it("respects topN cap", async () => {
+  it("respects topN cap for both hypothesis sections and packet sections", async () => {
     const dir = await mkdtemp(join(tmpdir(), "cg-report-"));
     try {
       const out = join(dir, "report.md");
@@ -199,10 +209,13 @@ describe("writeMarkdownReport", () => {
         coverage,
       });
       const md = await readFile(out, "utf-8");
-      expect(md).toContain("## Top hypotheses");
-      expect(md).toContain("### H001");
-      expect(md).toContain("### H002");
-      expect(md).not.toContain("### H003");
+      const lines = md.split("\n");
+      const hypothesisBlocks = lines.filter((line) => /^### H\d{3} - /.test(line));
+      const packetBlocks = lines.filter((line) => /^### Packet H\d{3}$/.test(line));
+      expect(hypothesisBlocks).toHaveLength(2);
+      expect(packetBlocks).toEqual(["### Packet H001", "### Packet H002"]);
+      expect(md).not.toContain("### Packet H003");
+      expect(md).not.toContain("### H003 - ");
     } finally {
       await rm(dir, { recursive: true });
     }

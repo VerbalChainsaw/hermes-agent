@@ -100,16 +100,56 @@ describe("center-geo CLI (T00 smoke)", () => {
     expect(r.status).toBe(ExitCode.REPO_READ_ERROR);
   });
 
-  it("scan on a real package runs the full pipeline and exits OK or THRESHOLD", () => {
+  it("scan on a real package runs the full pipeline and emits a valid JSON report contract", () => {
     // Current behavior: scan runs end-to-end (enumerate -> parse -> build
     // graph -> run engines -> fuse -> report) and returns either OK=0 or
     // THRESHOLD=1 depending on surfaced hypothesis severity.
-    const r = runCli(["scan", repoRoot]);
+    const r = runCli(["scan", "--format", "json", repoRoot]);
     expect([ExitCode.OK, ExitCode.THRESHOLD]).toContain(r.status);
-    // stderr includes the summary line with N nodes + N edges.
-    expect(r.stderr).toMatch(/scan: \d+ nodes, \d+ edges/);
-    // At least one signal reported.
-    expect(r.stderr).toMatch(/signals/);
+    const report = JSON.parse(r.stdout) as {
+      schema_version: string;
+      tool_version: string;
+      scan_frame: { root: string; config_hash: string; revision?: { vcs?: string } };
+      coverage: {
+        files_seen: number;
+        files_indexed: number;
+        files_failed: number;
+        files_parsed: number;
+      };
+      engine_runs: Array<{ geometry_id: string; status: string; signal_count?: number }>;
+      hypotheses: Array<{ id: string; score: { severity: string }; investigation_packet: object }>;
+      signals: unknown[];
+      warnings: unknown[];
+      count: number;
+      raw_signal_count: number;
+    };
+    expect(report.schema_version).toBe("1.0.0");
+    expect(typeof report.tool_version).toBe("string");
+    expect(report.scan_frame.root).toBe(repoRoot);
+    expect(typeof report.scan_frame.config_hash).toBe("string");
+    expect(report.scan_frame.config_hash.length).toBeGreaterThan(0);
+    expect(report.coverage.files_seen).toBeGreaterThan(0);
+    expect(report.coverage.files_indexed).toBeGreaterThan(0);
+    expect(report.coverage.files_parsed).toBeGreaterThan(0);
+    expect(report.coverage.files_failed).toBeGreaterThanOrEqual(0);
+    expect(report.engine_runs.map((run) => run.geometry_id).sort()).toEqual([
+      "anomaly",
+      "boundary",
+      "convergent",
+      "cycle",
+      "path",
+      "radial",
+    ]);
+    expect(report.engine_runs.every((run) => run.status === "completed")).toBe(true);
+    expect(report.signals.length).toBeGreaterThan(0);
+    expect(report.count).toBe(report.hypotheses.length);
+    expect(report.raw_signal_count).toBeGreaterThanOrEqual(report.signals.length);
+    expect(report.hypotheses[0]).toMatchObject({
+      id: expect.any(String),
+      score: { severity: expect.any(String) },
+      investigation_packet: expect.any(Object),
+    });
+    expect(Array.isArray(report.warnings)).toBe(true);
   });
 
   it("unknown subcommand exits with INTERNAL code 5 (not THRESHOLD)", () => {
