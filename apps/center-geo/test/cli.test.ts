@@ -86,46 +86,31 @@ describe("center-geo CLI (T00 smoke)", () => {
     expect(r.status).toBe(ExitCode.CONFIG_ERROR);
   });
 
-  it("index stub exits with INTERNAL code 5 (parity with scan)", () => {
-    // The path must point to a real, readable directory for T02's
-    // enumerator to run (it will then exit INTERNAL=5 because the
-    // graph emit step is T03+). Using the package root itself works.
+  it("index currently exits with INTERNAL after deterministic enumeration", () => {
+    // Index is intentionally partial on this branch: it validates config,
+    // enumerates the repo, emits deterministic counts/hash, then exits 5
+    // until graph emission lands.
     const r = runCli(["index", repoRoot]);
     expect(r.status).toBe(ExitCode.INTERNAL);
     expect(r.stderr).toMatch(/Not yet implemented as a graph emit|Stub exit/i);
   });
-  it("scan stub exits with INTERNAL code 5 (T00 stub state)", () => {
-      // T00-era expectation: scan was a stub that returned 5.
-      // After T09 the scan branch runs the full pipeline (enumerate
-      // -> parse -> build graph -> run radial engine). The path must
-      // point to a real, readable directory. This test asserts the
-      // STUB behaviour by pointing at a non-existent path (so we
-      // get REPO_READ_ERROR=4 instead of either the stub exit or
-      // the new exit-0 pipeline exit).
-      const r = runCli(["scan", "/definitely/not/a/path"]);
-      expect(r.status).toBe(ExitCode.REPO_READ_ERROR);
-    });
 
-    it("scan on real package runs the full pipeline and reports signals (T09+)", () => {
-        // New behaviour (T09): the scan branch runs end-to-end (enumerate
-        // -> parse -> build graph -> run radial engine -> emit signals)
-        // and exits INTERNAL=5 because fusion + report writers (T15-T19)
-        // are still pending. The exit code is the "internal stub" marker;
-        // the WORK (parse, graph, engine) all completes before exit.
-        const r = runCli(["scan", repoRoot]);
-        // The exit may be 0 (no high-severity signals), 1 (THRESHOLD: high-
-        // or critical-severity signals in the top hypotheses; introduced
-        // in T15), or 5 (INTERNAL: stub exit, only seen on pre-T09
-        // branches). All three are acceptable — the test asserts the
-        // WORK happened.
-        expect([ExitCode.OK, ExitCode.THRESHOLD, ExitCode.INTERNAL]).toContain(r.status);
-        // stderr includes the summary line with N nodes + N edges.
-        expect(r.stderr).toMatch(/scan: \d+ nodes, \d+ edges/);
-        // At least one signal reported (radial engine emits high_fan_out
-        // for any file with >8 filtered outgoing edges; the package
-        // itself qualifies).
-        expect(r.stderr).toMatch(/signals/);
-      });
+  it("scan on a missing repo exits with REPO_READ_ERROR code 4", () => {
+    const r = runCli(["scan", "/definitely/not/a/path"]);
+    expect(r.status).toBe(ExitCode.REPO_READ_ERROR);
+  });
+
+  it("scan on a real package runs the full pipeline and exits OK or THRESHOLD", () => {
+    // Current behavior: scan runs end-to-end (enumerate -> parse -> build
+    // graph -> run engines -> fuse -> report) and returns either OK=0 or
+    // THRESHOLD=1 depending on surfaced hypothesis severity.
+    const r = runCli(["scan", repoRoot]);
+    expect([ExitCode.OK, ExitCode.THRESHOLD]).toContain(r.status);
+    // stderr includes the summary line with N nodes + N edges.
+    expect(r.stderr).toMatch(/scan: \d+ nodes, \d+ edges/);
+    // At least one signal reported.
+    expect(r.stderr).toMatch(/signals/);
+  });
 
   it("unknown subcommand exits with INTERNAL code 5 (not THRESHOLD)", () => {
     // FR10: an unknown subcommand is an internal state issue (we don't

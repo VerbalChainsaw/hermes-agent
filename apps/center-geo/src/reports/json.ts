@@ -1,15 +1,19 @@
 /**
  * JSON report writer (T17).
  *
- * Writes the top-N FusedScore[] to a JSON file in the output directory.
- * Shape matches the stdout `--format json` output (T15) for consistency.
+ * Writes the top-N report envelope to a JSON file in the output directory.
+ * Shape matches the stdout `--format json` output for consistency.
  */
 
 import { writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import type { FusedScore } from "../scoring/types.js";
-import type { CoverageReport } from "../output/format.js";
+import {
+  buildJsonReport,
+  type CoverageReport,
+  type ReportMeta,
+} from "./model.js";
 
 /**
  * Write the JSON report to `outputPath`. The directory is created
@@ -21,15 +25,9 @@ export async function writeJsonReport(
   rawSignalCount: number,
   outputPath: string,
   coverage: CoverageReport,
+  meta?: Partial<ReportMeta>,
 ): Promise<void> {
-  const top = fused.slice(0, topN);
-  const report = {
-    schema_version: "1.0.0" as const,
-    count: top.length,
-    raw_signal_count: rawSignalCount,
-    coverage,
-    hypotheses: top,
-  };
+  const report = buildJsonReport(fused, topN, rawSignalCount, coverage, meta);
   await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, JSON.stringify(report, null, 2) + "\n", "utf-8");
 }

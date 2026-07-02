@@ -46,8 +46,41 @@ function sig(input: Partial<Signal> & { id: string; targetId: string; type: stri
 
 /* ── JSON report (T17) ─────────────────────────────────────────── */
 
+const coverage = {
+  files_seen: 10,
+  files_parsed: 10,
+  files_failed: 0,
+  edges_low_confidence: 0,
+  parse_ms: 0,
+  graph_build_ms: 0,
+  files_indexed: 10,
+  files_skipped: 0,
+  nodes_total: 20,
+  edges_total: 30,
+  unsupported_files: 0,
+  generated_files: 0,
+  parse_failure_paths: [],
+};
+
+const reportMeta = {
+  toolVersion: "0.1.0",
+  scanFrame: {
+    root: ".",
+    mode: "scan",
+    config_hash: "cfg123",
+    graph_id: "scan:abc123",
+    revision: {
+      vcs: "none",
+      snapshot_hash: "abc123",
+    },
+  },
+  engineRuns: [{ geometry_id: "radial", status: "completed" }],
+  signals: [],
+  warnings: [],
+};
+
 describe("writeJsonReport", () => {
-  it("writes a JSON file with schema_version, count, hypotheses", async () => {
+  it("writes a JSON file with the spec-shaped report envelope and enriched hypotheses", async () => {
     const dir = await mkdtemp(join(tmpdir(), "cg-report-"));
     try {
       const out = join(dir, "report.json");
@@ -56,17 +89,31 @@ describe("writeJsonReport", () => {
         sig({ id: "s2", targetId: "b", type: "boundary_violation", geometryId: "boundary" }),
       ];
       const f = [
-        fused({ targetId: "a", score: 1.5, maxSeverity: "high", contributors: [signals[0]] }),
-        fused({ targetId: "b", score: 0.5, maxSeverity: "low", contributors: [signals[1]] }),
+        fused({ targetId: "a", score: 1.5, maxSeverity: "high", geometries: ["radial"], contributors: [signals[0]] }),
+        fused({ targetId: "b", score: 0.5, maxSeverity: "low", geometries: ["boundary"], contributors: [signals[1]] }),
       ];
-      await writeJsonReport(f, 5, 2, out);
+      await writeJsonReport(f, 5, 2, out, coverage, reportMeta);
       const raw = await readFile(out, "utf-8");
       const parsed = JSON.parse(raw);
       expect(parsed.schema_version).toBe("1.0.0");
       expect(parsed.count).toBe(2);
       expect(parsed.raw_signal_count).toBe(2);
+      expect(parsed.tool_version).toBe("0.1.0");
+      expect(parsed.scan_frame.root).toBe(".");
+      expect(parsed.scan_frame.config_hash).toBe("cfg123");
+      expect(parsed.engine_runs).toEqual([{ geometry_id: "radial", status: "completed" }]);
+      expect(parsed.signals).toEqual([]);
+      expect(parsed.warnings).toEqual([]);
       expect(parsed.hypotheses).toHaveLength(2);
       expect(parsed.hypotheses[0].targetId).toBe("a");
+      expect(parsed.hypotheses[0].title).toBeDefined();
+      expect(parsed.hypotheses[0].status).toBe("hypothesis");
+      expect(parsed.hypotheses[0].target).toBeDefined();
+      expect(parsed.hypotheses[0].contributing_signal_ids).toEqual(["s1"]);
+      expect(parsed.hypotheses[0].contributing_geometries).toEqual(["radial"]);
+      expect(parsed.hypotheses[0].score.rank_score).toBe(1.5);
+      expect(parsed.hypotheses[0].score.severity).toBe("high");
+      expect(Array.isArray(parsed.hypotheses[0].limitations)).toBe(true);
     } finally {
       await rm(dir, { recursive: true });
     }
@@ -81,7 +128,7 @@ describe("writeJsonReport", () => {
         fused({ targetId: "b", score: 1 }),
         fused({ targetId: "c", score: 0.5 }),
       ];
-      await writeJsonReport(f, 2, 3, out);
+      await writeJsonReport(f, 2, 3, out, coverage, reportMeta);
       const parsed = JSON.parse(await readFile(out, "utf-8"));
       expect(parsed.count).toBe(2);
       expect(parsed.hypotheses).toHaveLength(2);
@@ -94,9 +141,10 @@ describe("writeJsonReport", () => {
     const dir = await mkdtemp(join(tmpdir(), "cg-report-"));
     try {
       const out = join(dir, "nested", "deep", "report.json");
-      await writeJsonReport([fused({ targetId: "a" })], 5, 1, out);
+      await writeJsonReport([fused({ targetId: "a" })], 5, 1, out, coverage, reportMeta);
       const parsed = JSON.parse(await readFile(out, "utf-8"));
       expect(parsed.schema_version).toBe("1.0.0");
+      expect(parsed.tool_version).toBe("0.1.0");
     } finally {
       await rm(dir, { recursive: true });
     }
@@ -106,23 +154,32 @@ describe("writeJsonReport", () => {
 /* ── Markdown report (T18) ──────────────────────────────────────── */
 
 describe("writeMarkdownReport", () => {
-  it("writes a markdown file with header, table, and limitations", async () => {
+  it("writes a markdown file with the required report sections", async () => {
     const dir = await mkdtemp(join(tmpdir(), "cg-report-"));
     try {
       const out = join(dir, "report.md");
       const f = [
         fused({ targetId: "a", score: 1.25, maxSeverity: "critical", geometries: ["anomaly", "radial"] }),
       ];
-      await writeMarkdownReport(f, 5, 3, "0.1.0", out);
+      await writeMarkdownReport(f, 5, 3, "0.1.0", out, {
+        ...reportMeta,
+        coverage,
+      });
       const md = await readFile(out, "utf-8");
       expect(md).toContain("# CENTER-MULTIGEOMETRY Report");
-      expect(md).toContain("Tool version: 0.1.0");
-      expect(md).toContain("Raw signals: 3");
-      expect(md).toContain("| Rank | Score | Severity |");
-      expect(md).toContain("| 1 | 1.25 | critical |");
-      expect(md).toContain("`a`");
-      expect(md).toContain("anomaly, radial");
-      expect(md).toContain("## Limitations");
+      expect(md).toContain("These are structural risk hypotheses derived from graph evidence.");
+      expect(md).toContain("## Executive summary");
+      expect(md).toContain("## Scan frame");
+      expect(md).toContain("## Coverage and extraction gaps");
+      expect(md).toContain("## Top hypotheses");
+      expect(md).toContain("## Geometry summaries");
+      expect(md).toContain("## Boundary findings");
+      expect(md).toContain("## Cycle findings");
+      expect(md).toContain("## Anomaly-only leads");
+      expect(md).toContain("## Convergent dependencies");
+      expect(md).toContain("## Agent investigation packets");
+      expect(md).toContain("## Non-goals and limitations");
+      expect(md).toContain("## Appendix: config hash and engine versions");
     } finally {
       await rm(dir, { recursive: true });
     }
@@ -137,11 +194,15 @@ describe("writeMarkdownReport", () => {
         fused({ targetId: "b", score: 1 }),
         fused({ targetId: "c", score: 0.5 }),
       ];
-      await writeMarkdownReport(f, 2, 3, "0.1.0", out);
+      await writeMarkdownReport(f, 2, 3, "0.1.0", out, {
+        ...reportMeta,
+        coverage,
+      });
       const md = await readFile(out, "utf-8");
-      expect(md).toContain("| 1 | 2.00");
-      expect(md).toContain("| 2 | 1.00");
-      expect(md).not.toContain("| 3 |");
+      expect(md).toContain("## Top hypotheses");
+      expect(md).toContain("### H001");
+      expect(md).toContain("### H002");
+      expect(md).not.toContain("### H003");
     } finally {
       await rm(dir, { recursive: true });
     }

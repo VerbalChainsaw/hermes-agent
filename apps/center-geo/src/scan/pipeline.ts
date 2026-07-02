@@ -30,6 +30,7 @@
  *   - Phase 3 merges results in file order, not completion order.
  */
 
+import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 
 import { enumerateFiles } from "../enumerate/enumerate.js";
@@ -45,8 +46,10 @@ import { runPathEngine } from "../engines/path/index.js";
 import { fuseSignals } from "../scoring/fuse.js";
 import type { FusedScore } from "../scoring/types.js";
 import type { Signal } from "../engines/radial/signals.js";
+import { hashConfig } from "../config/hash.js";
 import type { Config, EngineConfig } from "../config/types.js";
 import type { FileEntry } from "../enumerate/types.js";
+import type { RevisionInfo } from "../graph/types.js";
 
 /** Scan pipeline inputs. */
 export interface RunScanInputs {
@@ -104,6 +107,34 @@ export interface RunScanResult {
 }
 
 const PARSE_CONCURRENCY = 8;
+
+function gitStdout(repo: string, args: string[]): string | undefined {
+  const result = spawnSync("git", ["-C", repo, ...args], { encoding: "utf-8" });
+  if (result.error || result.status !== 0) return undefined;
+  const value = result.stdout.trim();
+  return value.length > 0 ? value : undefined;
+}
+
+function detectRevision(repo: string, snapshotHash: string): RevisionInfo {
+  const inside = gitStdout(repo, ["rev-parse", "--is-inside-work-tree"]);
+  if (inside !== "true") {
+    return { vcs: "none", snapshot_hash: snapshotHash };
+  }
+  const commit = gitStdout(repo, ["rev-parse", "HEAD"]);
+  const branch = gitStdout(repo, ["rev-parse", "--abbrev-ref", "HEAD"]);
+  const dirtyProbe = spawnSync(
+    "git",
+    ["-C", repo, "status", "--porcelain", "--untracked-files=no"],
+    { encoding: "utf-8" },
+  );
+  return {
+    vcs: commit ? "git" : "unknown",
+    commit,
+    branch: branch && branch !== "HEAD" ? branch : undefined,
+    dirty: dirtyProbe.error || dirtyProbe.status !== 0 ? undefined : dirtyProbe.stdout.trim().length > 0,
+    snapshot_hash: snapshotHash,
+  };
+}
 
 /**
  * Run the full scan pipeline. The function is pure modulo side
@@ -244,34 +275,50 @@ export async function runScanPipeline(
 
   // 3. Build the immutable graph store. The store sorts nodes/edges
   // at construction time, so the rest of the pipeline is order-
-  // independent. We construct a partial snapshot here (no
-  // schema_version/tool_version/graph_id yet) and the CLI fills
-  // those fields in when it builds the report.
-  //
-  // Coverage numbers reflect ALL enumerated files (regardless of
-  // classification or parse success):
-  //   - files_seen: every file the enumerator returned, including
-  //     tests + generated + broken-syntax files.
-  //   - files_parsed: files whose parseFile returned ok.
-  //   - files_failed: files whose parseFile returned AdapterFailure.
+  // independent.
   const totalEnumerated = enumResult.files.length;
+  const filesSkipped = totalEnumerated - sourceFiles.length;
+  const graphId = deterministic
+    ? `scan:${enumResult.hash}`
+    : `scan:${inputs.repo}`;
+  const configHash = hashConfig(inputs.config);
+  const revision = detectRevision(inputs.repo, enumResult.hash);
+  const lowConfidenceEdges = allEdges.filter(
+    (edge) => edge.confidence === "low" || edge.confidence === "unknown",
+  ).length;
+  const graphBuildStartMs = Date.now();
   const store = new GraphStore({
     nodes: allNodes,
     edges: allEdges,
     schema_version: "1.0.0",
     tool_version: "0.0.0", // placeholder; CLI overrides
-    graph_id: "scan:placeholder",
+    graph_id: graphId,
     root: inputs.repo,
+    revision,
+    config_hash: configHash,
     coverage: {
       files_seen: totalEnumerated,
       files_parsed: parseSuccessCount,
+      files_indexed: sourceFiles.length,
+      files_skipped: filesSkipped,
       files_failed: parseWarnings.length,
-      edges_low_confidence: 0,
+      nodes_total: allNodes.length,
+      edges_total: allEdges.length,
+      unsupported_files: 0,
+      generated_files: enumResult.counts.generated,
+      parse_failure_paths: parseWarnings.map((warning) => warning.file).sort(),
+      edges_low_confidence: lowConfidenceEdges,
       parse_ms: parseMs,
       graph_build_ms: 0,
     },
-    warnings: [],
+    warnings: parseWarnings.map((warning) => ({
+      code: warning.code,
+      message: warning.message,
+      path: warning.file,
+      severity: "warning" as const,
+    })),
   });
+  store.snapshot.coverage.graph_build_ms = Date.now() - graphBuildStartMs;
 
   // 4. Run all engines (T09-T13 + T25 path). Each is pure: (GraphStore, EngineConfig)
   // -> Signal[]. We pass the per-engine config slice. Missing slices
@@ -331,16 +378,6 @@ export async function runScanPipeline(
 
   // 5. Fuse (T14). The CLI handles top-N and format dispatch.
   const fused = fuseSignals(signals, inputs.config.scoring);
-
-  // 6. Build the graph id.
-  // DeepSeek Important #3: the OLD id was `scan:${repo}:${cfg.hash}`
-  // which includes the absolute path. Two CI runs in different
-  // working directories produce different graph_ids. The new id is
-  // `scan:${enumResult.hash}` (the enumeration content hash), which
-  // is deterministic across machines.
-  const graphId = deterministic
-    ? `scan:${enumResult.hash}`
-    : `scan:${inputs.repo}`;
 
   return {
     graphId,

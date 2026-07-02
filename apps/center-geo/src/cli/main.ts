@@ -2,9 +2,13 @@
 /**
  * center-geo CLI entrypoint.
  *
- * Status (T00): handles --help and --version only. Real subcommands
- * (index, scan, config) land in later tickets — see
- * docs/08-implementation-tickets.md in the requirements package.
+ * Current surface:
+ *   - `index`: partial implementation; validates config, enumerates files,
+ *     and reports deterministic enumeration details, but graph emission is
+ *     still intentionally unfinished.
+ *   - `scan`: live end-to-end pipeline (enumerate -> parse -> build graph ->
+ *     run engines -> fuse -> report).
+ *   - `diff`: compares two report.json files and emits machine-parseable JSON.
  *
  * Design rules from docs/01-product-requirements.md (NFR5, FR10, FR11):
  *   - Deterministic output in CI mode (no timestamps in report bodies).
@@ -33,6 +37,7 @@ import {
   writeMarkdownReport,
   writeSarifReport,
 } from "../reports/index.js";
+import { buildEngineRuns, buildScanFrame, type CoverageReport } from "../reports/model.js";
 import { runScanPipeline, ScanError } from "../scan/index.js";
 import {
   diffReports,
@@ -46,11 +51,11 @@ import {
 const TOOL_NAME = "center-geo";
 
 /**
- * Options accepted by a stub subcommand. Kept narrow on purpose — when
- * T02+ replaces the stub body with a real implementation, this type
- * narrows accordingly (e.g. `IndexOptions`, `ScanOptions`).
+ * Shared options for repo-backed commands. We keep the shape narrow on
+ * purpose so `index`/`scan` can diverge cleanly if their option surfaces
+ * need to split further.
  */
-interface StubOptions {
+interface RepoCommandOptions {
   config?: string;
   output?: string;
   outputDir?: string;
@@ -59,11 +64,11 @@ interface StubOptions {
 }
 
 /**
- * Register a placeholder subcommand. Centralises the "not yet
- * implemented" body so that adding 28 more stubs across T01–T30 is a
- * one-liner each instead of copy-paste.
+ * Register a repo-backed command with shared config / output / format
+ * plumbing. Some commands are fully shipped (`scan`), some are partial
+ * (`index`), but the wrapper itself is not a stub.
  */
-function stubSubcommand(
+function registerRepoCommand(
   program: Command,
   spec: {
     name: string;
@@ -110,10 +115,10 @@ function stubSubcommand(
     );
   }
 
-  cmd.action(async (repo: string, options: StubOptions) => {
+  cmd.action(async (repo: string, options: RepoCommandOptions) => {
     try {
-      // Load + validate config BEFORE claiming "not yet implemented".
-      // T01 acceptance: invalid config returns ExitCode.CONFIG_ERROR=3.
+      // Load + validate config before command-specific work so every
+      // repo-backed command shares the same FR10 config-error path.
       const cfg = await loadConfig(options.config);
       if (!cfg.ok) {
         console.error(`${TOOL_NAME} ${spec.name}: ${cfg.message}`);
@@ -193,13 +198,21 @@ function stubSubcommand(
       const fileNodeSeeds = allNodes.filter((n) => n.kind === "file").map((n) => n.id);
       const topN = cfg.config.report.top_n_hypotheses;
       const top = fused.slice(0, topN);
+      const coverage = snapshot.coverage as CoverageReport;
+      const reportMeta = {
+        toolVersion: PACKAGE_VERSION,
+        scanFrame: buildScanFrame(snapshot),
+        engineRuns: buildEngineRuns(cfg.config, signals),
+        signals,
+        warnings: snapshot.warnings,
+      };
 
       // Format dispatch (T15).
       const fmt: "human" | "json" =
         options.format === "json" ? "json" : "human";
 
       if (fmt === "json") {
-        const out = formatJson(fused, topN, signals.length, snapshot.coverage);
+        const out = formatJson(fused, topN, signals.length, coverage, reportMeta);
         process.stdout.write(out);
       } else {
         // Human mode: print a 1-line summary + the top-N body.
@@ -217,8 +230,11 @@ function stubSubcommand(
       if (options.outputDir) {
         const dir = options.outputDir;
         await Promise.all([
-          writeJsonReport(fused, topN, signals.length, `${dir}/report.json`, snapshot.coverage),
-          writeMarkdownReport(fused, topN, signals.length, PACKAGE_VERSION, `${dir}/report.md`),
+          writeJsonReport(fused, topN, signals.length, `${dir}/report.json`, coverage, reportMeta),
+          writeMarkdownReport(fused, topN, signals.length, PACKAGE_VERSION, `${dir}/report.md`, {
+            ...reportMeta,
+            coverage,
+          }),
           writeSarifReport(fused, topN, TOOL_NAME, PACKAGE_VERSION, `${dir}/report.sarif`),
         ]);
         process.stderr.write(`${TOOL_NAME} scan: wrote reports to ${dir}/report.{json,md,sarif}\n`);
@@ -319,14 +335,14 @@ export function main(argv: string[] = process.argv): number {
   // calling process.exit, so we can map to spec exit codes below.
   program.exitOverride();
 
-  stubSubcommand(program, {
+  registerRepoCommand(program, {
     name: "index",
     description: "Index a repository into a graph snapshot (T02+).",
     ticketRange: "T02+",
     options: { config: true, output: "file" },
   });
 
-  stubSubcommand(program, {
+  registerRepoCommand(program, {
     name: "scan",
     description: "Run a full scan (index + geometries + fusion + report) (T09+).",
     ticketRange: "T09+",

@@ -37,11 +37,8 @@ export interface DiffReport {
 export type FusedScoreById = Map<string, FusedScore>;
 
 /**
- * Parse a FusedScore[] from a JSON report file. The file may be either:
- *   - the raw stdout JSON (has 'hypotheses' top-level key), or
- *   - the saved report.json (also has 'hypotheses' top-level key).
- *
- * Throws if the file is not a valid report.
+ * Parse a FusedScore[] from a JSON report file. Supports both the
+ * legacy flat-hypothesis shape and the newer report-schema shape.
  */
 export async function readReport(path: string): Promise<FusedScore[]> {
   const raw = await readFile(path, "utf-8");
@@ -53,7 +50,97 @@ export async function readReport(path: string): Promise<FusedScore[]> {
   if (!Array.isArray(obj.hypotheses)) {
     throw new Error(`Invalid report at ${path}: missing 'hypotheses' array`);
   }
-  return obj.hypotheses as FusedScore[];
+  return obj.hypotheses.map(normalizeHypothesis);
+}
+
+const EMPTY_COMPONENTS: FusedScore["components"] = {
+  geometryBonus: 0,
+  independenceBonus: 0,
+  boundaryBonus: 0,
+  stateBonus: 0,
+  cycleBonus: 0,
+  testGapBonus: 0,
+  contradictionPenalty: 0,
+  capabilityGapPenalty: 0,
+};
+
+function normalizeHypothesis(value: unknown): FusedScore {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Invalid hypothesis entry: not an object");
+  }
+  const hypothesis = value as Record<string, unknown>;
+  if (typeof hypothesis.targetId === "string" && typeof hypothesis.score === "number") {
+    return hypothesis as unknown as FusedScore;
+  }
+  const scoreObject = hypothesis.score as Record<string, unknown> | undefined;
+  return {
+    id: typeof hypothesis.id === "string" ? hypothesis.id : `f:${deriveTargetId(hypothesis.target)}`,
+    targetId: typeof hypothesis.targetId === "string" ? hypothesis.targetId : deriveTargetId(hypothesis.target),
+    targetKind: deriveTargetKind(hypothesis.targetKind, hypothesis.target),
+    score: typeof scoreObject?.rank_score === "number" ? scoreObject.rank_score : 0,
+    maxSeverity: typeof hypothesis.maxSeverity === "string"
+      ? (hypothesis.maxSeverity as FusedScore["maxSeverity"])
+      : typeof scoreObject?.severity === "string"
+        ? (scoreObject.severity as FusedScore["maxSeverity"])
+        : "info",
+    geometries: Array.isArray(hypothesis.geometries)
+      ? (hypothesis.geometries as string[])
+      : Array.isArray(hypothesis.contributing_geometries)
+        ? (hypothesis.contributing_geometries as string[])
+        : [],
+    edgeKinds: Array.isArray(hypothesis.edgeKinds) ? (hypothesis.edgeKinds as string[]) : [],
+    contributors: Array.isArray(hypothesis.contributors)
+      ? (hypothesis.contributors as FusedScore["contributors"])
+      : [],
+    components: typeof hypothesis.components === "object" && hypothesis.components !== null
+      ? (hypothesis.components as FusedScore["components"])
+      : EMPTY_COMPONENTS,
+  };
+}
+
+function deriveTargetKind(
+  explicit: unknown,
+  target: unknown,
+): FusedScore["targetKind"] {
+  if (
+    explicit === "node" ||
+    explicit === "edge" ||
+    explicit === "path" ||
+    explicit === "subgraph" ||
+    explicit === "metric" ||
+    explicit === "boundary"
+  ) {
+    return explicit;
+  }
+  if (typeof target === "object" && target !== null && typeof (target as Record<string, unknown>).kind === "string") {
+    const kind = (target as Record<string, unknown>).kind;
+    if (
+      kind === "node" ||
+      kind === "edge" ||
+      kind === "path" ||
+      kind === "subgraph" ||
+      kind === "metric" ||
+      kind === "boundary"
+    ) {
+      return kind;
+    }
+  }
+  return "node";
+}
+
+function deriveTargetId(target: unknown): string {
+  if (typeof target !== "object" || target === null) {
+    return "unknown-target";
+  }
+  const obj = target as Record<string, unknown>;
+  if (typeof obj.node_id === "string") return obj.node_id;
+  if (typeof obj.edge_id === "string") return obj.edge_id;
+  if (typeof obj.boundary_id === "string") return obj.boundary_id;
+  if (typeof obj.metric_name === "string") return obj.metric_name;
+  if (Array.isArray(obj.node_ids) && obj.node_ids.length > 0 && typeof obj.node_ids[0] === "string") {
+    return obj.node_ids.join(">");
+  }
+  return "unknown-target";
 }
 
 /**

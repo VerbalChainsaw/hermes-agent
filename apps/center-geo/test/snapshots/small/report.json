@@ -1,21 +1,439 @@
 {
   "schema_version": "1.0.0",
+  "tool_version": "0.1.0",
+  "scan_frame": {
+    "root": "C:\\Users\\zerop\\AppData\\Local\\Temp\\cg-fixture-JlIkBe",
+    "mode": "scan",
+    "config_hash": "7b842043d5a663b1",
+    "graph_id": "scan:0d3f59b55bdbb820",
+    "revision": {
+      "vcs": "none",
+      "snapshot_hash": "0d3f59b55bdbb820"
+    }
+  },
   "count": 8,
   "raw_signal_count": 9,
   "coverage": {
     "files_seen": 10,
     "files_parsed": 10,
+    "files_indexed": 10,
+    "files_skipped": 0,
     "files_failed": 0,
+    "nodes_total": 20,
+    "edges_total": 29,
+    "unsupported_files": 0,
+    "generated_files": 0,
+    "parse_failure_paths": [],
     "edges_low_confidence": 0,
-    "parse_ms": 66,
-    "graph_build_ms": 0
+    "parse_ms": 25,
+    "graph_build_ms": 1
   },
+  "engine_runs": [
+    {
+      "geometry_id": "radial",
+      "status": "completed",
+      "signal_count": 1
+    },
+    {
+      "geometry_id": "cycle",
+      "status": "completed",
+      "signal_count": 0
+    },
+    {
+      "geometry_id": "boundary",
+      "status": "completed",
+      "signal_count": 0
+    },
+    {
+      "geometry_id": "anomaly",
+      "status": "completed",
+      "signal_count": 8
+    },
+    {
+      "geometry_id": "convergent",
+      "status": "completed",
+      "signal_count": 0
+    },
+    {
+      "geometry_id": "path",
+      "status": "completed",
+      "signal_count": 0
+    }
+  ],
+  "signals": [
+    {
+      "id": "s:radial:high_fan_out:file:b37fc6133ea25705:ba0253c9787b9d73",
+      "geometry_id": "radial",
+      "type": "high_fan_out",
+      "target": {
+        "kind": "node",
+        "node_id": "file:b37fc6133ea25705"
+      },
+      "severity_hint": "medium",
+      "confidence_hint": "medium",
+      "evidence": [
+        {
+          "path": "src/f9.ts",
+          "range": {
+            "start_line": 1,
+            "end_line": 12
+          },
+          "source": "source"
+        }
+      ],
+      "metrics": {
+        "filteredFanOut": 10
+      },
+      "explanation": "radial geometry emitted high_fan_out for node file:b37fc6133ea25705.",
+      "limitations": [
+        "filtered fan-out threshold (8) is a placeholder; T12+ replaces with config-driven percentile",
+        "does not weight edges by confidence; counts allowed-kind edges only"
+      ]
+    },
+    {
+      "id": "s:anomaly:fan_out_anomaly:file:0f54371f19fd5a12:760155fbc0c7806e",
+      "geometry_id": "anomaly",
+      "type": "fan_out_anomaly",
+      "target": {
+        "kind": "node",
+        "node_id": "file:0f54371f19fd5a12"
+      },
+      "severity_hint": "low",
+      "confidence_hint": "medium",
+      "evidence": [
+        {
+          "path": "src/f2.ts",
+          "range": {
+            "start_line": 1,
+            "end_line": 4
+          },
+          "source": "source"
+        }
+      ],
+      "metrics": {
+        "count": 2,
+        "threshold": 1,
+        "ratioTimesHundred": 200
+      },
+      "explanation": "Anomaly geometry flagged node file:0f54371f19fd5a12 as structurally unusual.",
+      "limitations": [
+        "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+        "false positives expected on purpose-built hubs (barrel files, index.ts)",
+        "severity scale is heuristic; not calibrated against historical defect rates",
+        "static analysis only — runtime metrics (call frequency, response time) are not measured"
+      ]
+    },
+    {
+      "id": "s:anomaly:fan_out_anomaly:file:106dd9949759b4c6:1b005de0d2aad625",
+      "geometry_id": "anomaly",
+      "type": "fan_out_anomaly",
+      "target": {
+        "kind": "node",
+        "node_id": "file:106dd9949759b4c6"
+      },
+      "severity_hint": "low",
+      "confidence_hint": "medium",
+      "evidence": [
+        {
+          "path": "src/f4.ts",
+          "range": {
+            "start_line": 1,
+            "end_line": 4
+          },
+          "source": "source"
+        }
+      ],
+      "metrics": {
+        "count": 2,
+        "threshold": 1,
+        "ratioTimesHundred": 200
+      },
+      "explanation": "Anomaly geometry flagged node file:106dd9949759b4c6 as structurally unusual.",
+      "limitations": [
+        "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+        "false positives expected on purpose-built hubs (barrel files, index.ts)",
+        "severity scale is heuristic; not calibrated against historical defect rates",
+        "static analysis only — runtime metrics (call frequency, response time) are not measured"
+      ]
+    },
+    {
+      "id": "s:anomaly:fan_out_anomaly:file:39250c1ce7a64716:095a901da6959811",
+      "geometry_id": "anomaly",
+      "type": "fan_out_anomaly",
+      "target": {
+        "kind": "node",
+        "node_id": "file:39250c1ce7a64716"
+      },
+      "severity_hint": "low",
+      "confidence_hint": "medium",
+      "evidence": [
+        {
+          "path": "src/f7.ts",
+          "range": {
+            "start_line": 1,
+            "end_line": 4
+          },
+          "source": "source"
+        }
+      ],
+      "metrics": {
+        "count": 2,
+        "threshold": 1,
+        "ratioTimesHundred": 200
+      },
+      "explanation": "Anomaly geometry flagged node file:39250c1ce7a64716 as structurally unusual.",
+      "limitations": [
+        "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+        "false positives expected on purpose-built hubs (barrel files, index.ts)",
+        "severity scale is heuristic; not calibrated against historical defect rates",
+        "static analysis only — runtime metrics (call frequency, response time) are not measured"
+      ]
+    },
+    {
+      "id": "s:anomaly:fan_out_anomaly:file:79c9bc7180e0dd77:61328b5fe1a1732b",
+      "geometry_id": "anomaly",
+      "type": "fan_out_anomaly",
+      "target": {
+        "kind": "node",
+        "node_id": "file:79c9bc7180e0dd77"
+      },
+      "severity_hint": "low",
+      "confidence_hint": "medium",
+      "evidence": [
+        {
+          "path": "src/f8.ts",
+          "range": {
+            "start_line": 1,
+            "end_line": 5
+          },
+          "source": "source"
+        }
+      ],
+      "metrics": {
+        "count": 3,
+        "threshold": 1,
+        "ratioTimesHundred": 300
+      },
+      "explanation": "Anomaly geometry flagged node file:79c9bc7180e0dd77 as structurally unusual.",
+      "limitations": [
+        "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+        "false positives expected on purpose-built hubs (barrel files, index.ts)",
+        "severity scale is heuristic; not calibrated against historical defect rates",
+        "static analysis only — runtime metrics (call frequency, response time) are not measured"
+      ]
+    },
+    {
+      "id": "s:anomaly:fan_out_anomaly:file:95162c5c019186e0:300ea49e89f657b5",
+      "geometry_id": "anomaly",
+      "type": "fan_out_anomaly",
+      "target": {
+        "kind": "node",
+        "node_id": "file:95162c5c019186e0"
+      },
+      "severity_hint": "low",
+      "confidence_hint": "medium",
+      "evidence": [
+        {
+          "path": "src/f5.ts",
+          "range": {
+            "start_line": 1,
+            "end_line": 5
+          },
+          "source": "source"
+        }
+      ],
+      "metrics": {
+        "count": 3,
+        "threshold": 1,
+        "ratioTimesHundred": 300
+      },
+      "explanation": "Anomaly geometry flagged node file:95162c5c019186e0 as structurally unusual.",
+      "limitations": [
+        "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+        "false positives expected on purpose-built hubs (barrel files, index.ts)",
+        "severity scale is heuristic; not calibrated against historical defect rates",
+        "static analysis only — runtime metrics (call frequency, response time) are not measured"
+      ]
+    },
+    {
+      "id": "s:anomaly:fan_out_anomaly:file:a98805ce14972512:8f0ab374188dec4d",
+      "geometry_id": "anomaly",
+      "type": "fan_out_anomaly",
+      "target": {
+        "kind": "node",
+        "node_id": "file:a98805ce14972512"
+      },
+      "severity_hint": "low",
+      "confidence_hint": "medium",
+      "evidence": [
+        {
+          "path": "src/f1.ts",
+          "range": {
+            "start_line": 1,
+            "end_line": 4
+          },
+          "source": "source"
+        }
+      ],
+      "metrics": {
+        "count": 2,
+        "threshold": 1,
+        "ratioTimesHundred": 200
+      },
+      "explanation": "Anomaly geometry flagged node file:a98805ce14972512 as structurally unusual.",
+      "limitations": [
+        "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+        "false positives expected on purpose-built hubs (barrel files, index.ts)",
+        "severity scale is heuristic; not calibrated against historical defect rates",
+        "static analysis only — runtime metrics (call frequency, response time) are not measured"
+      ]
+    },
+    {
+      "id": "s:anomaly:fan_out_anomaly:file:b37fc6133ea25705:5f9b527c42cb8d38",
+      "geometry_id": "anomaly",
+      "type": "fan_out_anomaly",
+      "target": {
+        "kind": "node",
+        "node_id": "file:b37fc6133ea25705"
+      },
+      "severity_hint": "high",
+      "confidence_hint": "medium",
+      "evidence": [
+        {
+          "path": "src/f9.ts",
+          "range": {
+            "start_line": 1,
+            "end_line": 12
+          },
+          "source": "source"
+        }
+      ],
+      "metrics": {
+        "count": 10,
+        "threshold": 1,
+        "ratioTimesHundred": 1000
+      },
+      "explanation": "Anomaly geometry flagged node file:b37fc6133ea25705 as structurally unusual.",
+      "limitations": [
+        "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+        "false positives expected on purpose-built hubs (barrel files, index.ts)",
+        "severity scale is heuristic; not calibrated against historical defect rates",
+        "static analysis only — runtime metrics (call frequency, response time) are not measured"
+      ]
+    },
+    {
+      "id": "s:anomaly:fan_out_anomaly:file:be335e4e2e96bea0:ee2f9751a5361155",
+      "geometry_id": "anomaly",
+      "type": "fan_out_anomaly",
+      "target": {
+        "kind": "node",
+        "node_id": "file:be335e4e2e96bea0"
+      },
+      "severity_hint": "low",
+      "confidence_hint": "medium",
+      "evidence": [
+        {
+          "path": "src/f0.ts",
+          "range": {
+            "start_line": 1,
+            "end_line": 5
+          },
+          "source": "source"
+        }
+      ],
+      "metrics": {
+        "count": 3,
+        "threshold": 1,
+        "ratioTimesHundred": 300
+      },
+      "explanation": "Anomaly geometry flagged node file:be335e4e2e96bea0 as structurally unusual.",
+      "limitations": [
+        "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+        "false positives expected on purpose-built hubs (barrel files, index.ts)",
+        "severity scale is heuristic; not calibrated against historical defect rates",
+        "static analysis only — runtime metrics (call frequency, response time) are not measured"
+      ]
+    }
+  ],
   "hypotheses": [
     {
       "id": "f:db80994620da8b7b",
+      "title": "node file:b37fc6133ea25705 surfaced across 2 geometries",
+      "status": "hypothesis",
+      "target": {
+        "kind": "node",
+        "node_id": "file:b37fc6133ea25705"
+      },
+      "contributing_signal_ids": [
+        "s:radial:high_fan_out:file:b37fc6133ea25705:ba0253c9787b9d73",
+        "s:anomaly:fan_out_anomaly:file:b37fc6133ea25705:5f9b527c42cb8d38"
+      ],
+      "contributing_geometries": [
+        "anomaly",
+        "radial"
+      ],
+      "score": {
+        "rank_score": 1.25,
+        "severity": "high",
+        "confidence": "medium",
+        "geometry_count": 2,
+        "evidence_count": 2,
+        "independence_count": 2,
+        "calculation_notes": [
+          "2 geometries contributed evidence.",
+          "2 independent edge-kind buckets contributed.",
+          "Highest contributor severity: high."
+        ]
+      },
+      "explanation": "Evidence from anomaly, radial raised this node as a structural risk hypothesis. The fused rank prioritizes investigation order; it is not proof of a defect.",
+      "investigation_packet": {
+        "objective": "Verify whether node file:b37fc6133ea25705 represents a real architectural or behavioral defect.",
+        "suspected_invariant": "The system should not require node file:b37fc6133ea25705 to carry this level of multi-geometry structural risk.",
+        "suggested_center_anchors": [
+          {
+            "path": "src/f9.ts",
+            "range": {
+              "start_line": 1,
+              "end_line": 12
+            },
+            "source": "source"
+          },
+          {
+            "path": "src/f9.ts",
+            "range": {
+              "start_line": 1,
+              "end_line": 12
+            },
+            "source": "source"
+          }
+        ],
+        "first_questions": [
+          "Which contributor produced the highest-severity evidence for file:b37fc6133ea25705?",
+          "Does the cited path or boundary exist in production code, or only in scaffolding/tests?",
+          "Can the strongest signal be falsified by configuration, dead code, or generated wiring?"
+        ],
+        "forbidden_scope": [
+          "Do not treat this hypothesis as a confirmed bug without focused audit or reproduction.",
+          "Do not widen the repair beyond the cited target until the causal path is verified."
+        ],
+        "recommended_verification": [
+          "Trace the highest-severity anchors in the built artifact or current source tree.",
+          "Run a focused CENTER-AUDIT or equivalent root-cause review on the cited target.",
+          "Check whether the path is test-only, generated, or configuration-derived noise before editing code."
+        ]
+      },
+      "contradictions": [],
+      "limitations": [
+        "Hypotheses are ranking aids, not confirmed defects.",
+        "does not weight edges by confidence; counts allowed-kind edges only",
+        "false positives expected on purpose-built hubs (barrel files, index.ts)",
+        "filtered fan-out threshold (8) is a placeholder; T12+ replaces with config-driven percentile",
+        "severity scale is heuristic; not calibrated against historical defect rates",
+        "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+        "static analysis only — runtime metrics (call frequency, response time) are not measured"
+      ],
       "targetId": "file:b37fc6133ea25705",
       "targetKind": "node",
-      "score": 1.25,
       "maxSeverity": "high",
       "geometries": [
         "anomaly",
@@ -110,9 +528,69 @@
     },
     {
       "id": "f:7e9374088dca0893",
+      "title": "node file:0f54371f19fd5a12 surfaced in anomaly",
+      "status": "hypothesis",
+      "target": {
+        "kind": "node",
+        "node_id": "file:0f54371f19fd5a12"
+      },
+      "contributing_signal_ids": [
+        "s:anomaly:fan_out_anomaly:file:0f54371f19fd5a12:760155fbc0c7806e"
+      ],
+      "contributing_geometries": [
+        "anomaly"
+      ],
+      "score": {
+        "rank_score": 0,
+        "severity": "low",
+        "confidence": "medium",
+        "geometry_count": 1,
+        "evidence_count": 1,
+        "independence_count": 1,
+        "calculation_notes": [
+          "Single geometry contribution only.",
+          "Highest contributor severity: low."
+        ]
+      },
+      "explanation": "Evidence from anomaly raised this node as a structural risk hypothesis. The fused rank prioritizes investigation order; it is not proof of a defect.",
+      "investigation_packet": {
+        "objective": "Verify whether node file:0f54371f19fd5a12 represents a real architectural or behavioral defect.",
+        "suspected_invariant": "The system should not require node file:0f54371f19fd5a12 to carry this level of multi-geometry structural risk.",
+        "suggested_center_anchors": [
+          {
+            "path": "src/f2.ts",
+            "range": {
+              "start_line": 1,
+              "end_line": 4
+            },
+            "source": "source"
+          }
+        ],
+        "first_questions": [
+          "Which contributor produced the highest-severity evidence for file:0f54371f19fd5a12?",
+          "Does the cited path or boundary exist in production code, or only in scaffolding/tests?",
+          "Can the strongest signal be falsified by configuration, dead code, or generated wiring?"
+        ],
+        "forbidden_scope": [
+          "Do not treat this hypothesis as a confirmed bug without focused audit or reproduction.",
+          "Do not widen the repair beyond the cited target until the causal path is verified."
+        ],
+        "recommended_verification": [
+          "Trace the highest-severity anchors in the built artifact or current source tree.",
+          "Run a focused CENTER-AUDIT or equivalent root-cause review on the cited target.",
+          "Check whether the path is test-only, generated, or configuration-derived noise before editing code."
+        ]
+      },
+      "contradictions": [],
+      "limitations": [
+        "Hypotheses are ranking aids, not confirmed defects.",
+        "false positives expected on purpose-built hubs (barrel files, index.ts)",
+        "severity scale is heuristic; not calibrated against historical defect rates",
+        "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+        "static analysis only — runtime metrics (call frequency, response time) are not measured"
+      ],
       "targetId": "file:0f54371f19fd5a12",
       "targetKind": "node",
-      "score": 0,
       "maxSeverity": "low",
       "geometries": [
         "anomaly"
@@ -171,9 +649,69 @@
     },
     {
       "id": "f:562c3c0ab121bfa3",
+      "title": "node file:106dd9949759b4c6 surfaced in anomaly",
+      "status": "hypothesis",
+      "target": {
+        "kind": "node",
+        "node_id": "file:106dd9949759b4c6"
+      },
+      "contributing_signal_ids": [
+        "s:anomaly:fan_out_anomaly:file:106dd9949759b4c6:1b005de0d2aad625"
+      ],
+      "contributing_geometries": [
+        "anomaly"
+      ],
+      "score": {
+        "rank_score": 0,
+        "severity": "low",
+        "confidence": "medium",
+        "geometry_count": 1,
+        "evidence_count": 1,
+        "independence_count": 1,
+        "calculation_notes": [
+          "Single geometry contribution only.",
+          "Highest contributor severity: low."
+        ]
+      },
+      "explanation": "Evidence from anomaly raised this node as a structural risk hypothesis. The fused rank prioritizes investigation order; it is not proof of a defect.",
+      "investigation_packet": {
+        "objective": "Verify whether node file:106dd9949759b4c6 represents a real architectural or behavioral defect.",
+        "suspected_invariant": "The system should not require node file:106dd9949759b4c6 to carry this level of multi-geometry structural risk.",
+        "suggested_center_anchors": [
+          {
+            "path": "src/f4.ts",
+            "range": {
+              "start_line": 1,
+              "end_line": 4
+            },
+            "source": "source"
+          }
+        ],
+        "first_questions": [
+          "Which contributor produced the highest-severity evidence for file:106dd9949759b4c6?",
+          "Does the cited path or boundary exist in production code, or only in scaffolding/tests?",
+          "Can the strongest signal be falsified by configuration, dead code, or generated wiring?"
+        ],
+        "forbidden_scope": [
+          "Do not treat this hypothesis as a confirmed bug without focused audit or reproduction.",
+          "Do not widen the repair beyond the cited target until the causal path is verified."
+        ],
+        "recommended_verification": [
+          "Trace the highest-severity anchors in the built artifact or current source tree.",
+          "Run a focused CENTER-AUDIT or equivalent root-cause review on the cited target.",
+          "Check whether the path is test-only, generated, or configuration-derived noise before editing code."
+        ]
+      },
+      "contradictions": [],
+      "limitations": [
+        "Hypotheses are ranking aids, not confirmed defects.",
+        "false positives expected on purpose-built hubs (barrel files, index.ts)",
+        "severity scale is heuristic; not calibrated against historical defect rates",
+        "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+        "static analysis only — runtime metrics (call frequency, response time) are not measured"
+      ],
       "targetId": "file:106dd9949759b4c6",
       "targetKind": "node",
-      "score": 0,
       "maxSeverity": "low",
       "geometries": [
         "anomaly"
@@ -232,9 +770,69 @@
     },
     {
       "id": "f:3020bef100c583f4",
+      "title": "node file:39250c1ce7a64716 surfaced in anomaly",
+      "status": "hypothesis",
+      "target": {
+        "kind": "node",
+        "node_id": "file:39250c1ce7a64716"
+      },
+      "contributing_signal_ids": [
+        "s:anomaly:fan_out_anomaly:file:39250c1ce7a64716:095a901da6959811"
+      ],
+      "contributing_geometries": [
+        "anomaly"
+      ],
+      "score": {
+        "rank_score": 0,
+        "severity": "low",
+        "confidence": "medium",
+        "geometry_count": 1,
+        "evidence_count": 1,
+        "independence_count": 1,
+        "calculation_notes": [
+          "Single geometry contribution only.",
+          "Highest contributor severity: low."
+        ]
+      },
+      "explanation": "Evidence from anomaly raised this node as a structural risk hypothesis. The fused rank prioritizes investigation order; it is not proof of a defect.",
+      "investigation_packet": {
+        "objective": "Verify whether node file:39250c1ce7a64716 represents a real architectural or behavioral defect.",
+        "suspected_invariant": "The system should not require node file:39250c1ce7a64716 to carry this level of multi-geometry structural risk.",
+        "suggested_center_anchors": [
+          {
+            "path": "src/f7.ts",
+            "range": {
+              "start_line": 1,
+              "end_line": 4
+            },
+            "source": "source"
+          }
+        ],
+        "first_questions": [
+          "Which contributor produced the highest-severity evidence for file:39250c1ce7a64716?",
+          "Does the cited path or boundary exist in production code, or only in scaffolding/tests?",
+          "Can the strongest signal be falsified by configuration, dead code, or generated wiring?"
+        ],
+        "forbidden_scope": [
+          "Do not treat this hypothesis as a confirmed bug without focused audit or reproduction.",
+          "Do not widen the repair beyond the cited target until the causal path is verified."
+        ],
+        "recommended_verification": [
+          "Trace the highest-severity anchors in the built artifact or current source tree.",
+          "Run a focused CENTER-AUDIT or equivalent root-cause review on the cited target.",
+          "Check whether the path is test-only, generated, or configuration-derived noise before editing code."
+        ]
+      },
+      "contradictions": [],
+      "limitations": [
+        "Hypotheses are ranking aids, not confirmed defects.",
+        "false positives expected on purpose-built hubs (barrel files, index.ts)",
+        "severity scale is heuristic; not calibrated against historical defect rates",
+        "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+        "static analysis only — runtime metrics (call frequency, response time) are not measured"
+      ],
       "targetId": "file:39250c1ce7a64716",
       "targetKind": "node",
-      "score": 0,
       "maxSeverity": "low",
       "geometries": [
         "anomaly"
@@ -293,9 +891,69 @@
     },
     {
       "id": "f:a343f7208a388756",
+      "title": "node file:79c9bc7180e0dd77 surfaced in anomaly",
+      "status": "hypothesis",
+      "target": {
+        "kind": "node",
+        "node_id": "file:79c9bc7180e0dd77"
+      },
+      "contributing_signal_ids": [
+        "s:anomaly:fan_out_anomaly:file:79c9bc7180e0dd77:61328b5fe1a1732b"
+      ],
+      "contributing_geometries": [
+        "anomaly"
+      ],
+      "score": {
+        "rank_score": 0,
+        "severity": "low",
+        "confidence": "medium",
+        "geometry_count": 1,
+        "evidence_count": 1,
+        "independence_count": 1,
+        "calculation_notes": [
+          "Single geometry contribution only.",
+          "Highest contributor severity: low."
+        ]
+      },
+      "explanation": "Evidence from anomaly raised this node as a structural risk hypothesis. The fused rank prioritizes investigation order; it is not proof of a defect.",
+      "investigation_packet": {
+        "objective": "Verify whether node file:79c9bc7180e0dd77 represents a real architectural or behavioral defect.",
+        "suspected_invariant": "The system should not require node file:79c9bc7180e0dd77 to carry this level of multi-geometry structural risk.",
+        "suggested_center_anchors": [
+          {
+            "path": "src/f8.ts",
+            "range": {
+              "start_line": 1,
+              "end_line": 5
+            },
+            "source": "source"
+          }
+        ],
+        "first_questions": [
+          "Which contributor produced the highest-severity evidence for file:79c9bc7180e0dd77?",
+          "Does the cited path or boundary exist in production code, or only in scaffolding/tests?",
+          "Can the strongest signal be falsified by configuration, dead code, or generated wiring?"
+        ],
+        "forbidden_scope": [
+          "Do not treat this hypothesis as a confirmed bug without focused audit or reproduction.",
+          "Do not widen the repair beyond the cited target until the causal path is verified."
+        ],
+        "recommended_verification": [
+          "Trace the highest-severity anchors in the built artifact or current source tree.",
+          "Run a focused CENTER-AUDIT or equivalent root-cause review on the cited target.",
+          "Check whether the path is test-only, generated, or configuration-derived noise before editing code."
+        ]
+      },
+      "contradictions": [],
+      "limitations": [
+        "Hypotheses are ranking aids, not confirmed defects.",
+        "false positives expected on purpose-built hubs (barrel files, index.ts)",
+        "severity scale is heuristic; not calibrated against historical defect rates",
+        "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+        "static analysis only — runtime metrics (call frequency, response time) are not measured"
+      ],
       "targetId": "file:79c9bc7180e0dd77",
       "targetKind": "node",
-      "score": 0,
       "maxSeverity": "low",
       "geometries": [
         "anomaly"
@@ -354,9 +1012,69 @@
     },
     {
       "id": "f:97340a2f3f6c1b9b",
+      "title": "node file:95162c5c019186e0 surfaced in anomaly",
+      "status": "hypothesis",
+      "target": {
+        "kind": "node",
+        "node_id": "file:95162c5c019186e0"
+      },
+      "contributing_signal_ids": [
+        "s:anomaly:fan_out_anomaly:file:95162c5c019186e0:300ea49e89f657b5"
+      ],
+      "contributing_geometries": [
+        "anomaly"
+      ],
+      "score": {
+        "rank_score": 0,
+        "severity": "low",
+        "confidence": "medium",
+        "geometry_count": 1,
+        "evidence_count": 1,
+        "independence_count": 1,
+        "calculation_notes": [
+          "Single geometry contribution only.",
+          "Highest contributor severity: low."
+        ]
+      },
+      "explanation": "Evidence from anomaly raised this node as a structural risk hypothesis. The fused rank prioritizes investigation order; it is not proof of a defect.",
+      "investigation_packet": {
+        "objective": "Verify whether node file:95162c5c019186e0 represents a real architectural or behavioral defect.",
+        "suspected_invariant": "The system should not require node file:95162c5c019186e0 to carry this level of multi-geometry structural risk.",
+        "suggested_center_anchors": [
+          {
+            "path": "src/f5.ts",
+            "range": {
+              "start_line": 1,
+              "end_line": 5
+            },
+            "source": "source"
+          }
+        ],
+        "first_questions": [
+          "Which contributor produced the highest-severity evidence for file:95162c5c019186e0?",
+          "Does the cited path or boundary exist in production code, or only in scaffolding/tests?",
+          "Can the strongest signal be falsified by configuration, dead code, or generated wiring?"
+        ],
+        "forbidden_scope": [
+          "Do not treat this hypothesis as a confirmed bug without focused audit or reproduction.",
+          "Do not widen the repair beyond the cited target until the causal path is verified."
+        ],
+        "recommended_verification": [
+          "Trace the highest-severity anchors in the built artifact or current source tree.",
+          "Run a focused CENTER-AUDIT or equivalent root-cause review on the cited target.",
+          "Check whether the path is test-only, generated, or configuration-derived noise before editing code."
+        ]
+      },
+      "contradictions": [],
+      "limitations": [
+        "Hypotheses are ranking aids, not confirmed defects.",
+        "false positives expected on purpose-built hubs (barrel files, index.ts)",
+        "severity scale is heuristic; not calibrated against historical defect rates",
+        "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+        "static analysis only — runtime metrics (call frequency, response time) are not measured"
+      ],
       "targetId": "file:95162c5c019186e0",
       "targetKind": "node",
-      "score": 0,
       "maxSeverity": "low",
       "geometries": [
         "anomaly"
@@ -415,9 +1133,69 @@
     },
     {
       "id": "f:df9eaabf568d0be2",
+      "title": "node file:a98805ce14972512 surfaced in anomaly",
+      "status": "hypothesis",
+      "target": {
+        "kind": "node",
+        "node_id": "file:a98805ce14972512"
+      },
+      "contributing_signal_ids": [
+        "s:anomaly:fan_out_anomaly:file:a98805ce14972512:8f0ab374188dec4d"
+      ],
+      "contributing_geometries": [
+        "anomaly"
+      ],
+      "score": {
+        "rank_score": 0,
+        "severity": "low",
+        "confidence": "medium",
+        "geometry_count": 1,
+        "evidence_count": 1,
+        "independence_count": 1,
+        "calculation_notes": [
+          "Single geometry contribution only.",
+          "Highest contributor severity: low."
+        ]
+      },
+      "explanation": "Evidence from anomaly raised this node as a structural risk hypothesis. The fused rank prioritizes investigation order; it is not proof of a defect.",
+      "investigation_packet": {
+        "objective": "Verify whether node file:a98805ce14972512 represents a real architectural or behavioral defect.",
+        "suspected_invariant": "The system should not require node file:a98805ce14972512 to carry this level of multi-geometry structural risk.",
+        "suggested_center_anchors": [
+          {
+            "path": "src/f1.ts",
+            "range": {
+              "start_line": 1,
+              "end_line": 4
+            },
+            "source": "source"
+          }
+        ],
+        "first_questions": [
+          "Which contributor produced the highest-severity evidence for file:a98805ce14972512?",
+          "Does the cited path or boundary exist in production code, or only in scaffolding/tests?",
+          "Can the strongest signal be falsified by configuration, dead code, or generated wiring?"
+        ],
+        "forbidden_scope": [
+          "Do not treat this hypothesis as a confirmed bug without focused audit or reproduction.",
+          "Do not widen the repair beyond the cited target until the causal path is verified."
+        ],
+        "recommended_verification": [
+          "Trace the highest-severity anchors in the built artifact or current source tree.",
+          "Run a focused CENTER-AUDIT or equivalent root-cause review on the cited target.",
+          "Check whether the path is test-only, generated, or configuration-derived noise before editing code."
+        ]
+      },
+      "contradictions": [],
+      "limitations": [
+        "Hypotheses are ranking aids, not confirmed defects.",
+        "false positives expected on purpose-built hubs (barrel files, index.ts)",
+        "severity scale is heuristic; not calibrated against historical defect rates",
+        "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+        "static analysis only — runtime metrics (call frequency, response time) are not measured"
+      ],
       "targetId": "file:a98805ce14972512",
       "targetKind": "node",
-      "score": 0,
       "maxSeverity": "low",
       "geometries": [
         "anomaly"
@@ -476,9 +1254,69 @@
     },
     {
       "id": "f:2dd2f22be496dcad",
+      "title": "node file:be335e4e2e96bea0 surfaced in anomaly",
+      "status": "hypothesis",
+      "target": {
+        "kind": "node",
+        "node_id": "file:be335e4e2e96bea0"
+      },
+      "contributing_signal_ids": [
+        "s:anomaly:fan_out_anomaly:file:be335e4e2e96bea0:ee2f9751a5361155"
+      ],
+      "contributing_geometries": [
+        "anomaly"
+      ],
+      "score": {
+        "rank_score": 0,
+        "severity": "low",
+        "confidence": "medium",
+        "geometry_count": 1,
+        "evidence_count": 1,
+        "independence_count": 1,
+        "calculation_notes": [
+          "Single geometry contribution only.",
+          "Highest contributor severity: low."
+        ]
+      },
+      "explanation": "Evidence from anomaly raised this node as a structural risk hypothesis. The fused rank prioritizes investigation order; it is not proof of a defect.",
+      "investigation_packet": {
+        "objective": "Verify whether node file:be335e4e2e96bea0 represents a real architectural or behavioral defect.",
+        "suspected_invariant": "The system should not require node file:be335e4e2e96bea0 to carry this level of multi-geometry structural risk.",
+        "suggested_center_anchors": [
+          {
+            "path": "src/f0.ts",
+            "range": {
+              "start_line": 1,
+              "end_line": 5
+            },
+            "source": "source"
+          }
+        ],
+        "first_questions": [
+          "Which contributor produced the highest-severity evidence for file:be335e4e2e96bea0?",
+          "Does the cited path or boundary exist in production code, or only in scaffolding/tests?",
+          "Can the strongest signal be falsified by configuration, dead code, or generated wiring?"
+        ],
+        "forbidden_scope": [
+          "Do not treat this hypothesis as a confirmed bug without focused audit or reproduction.",
+          "Do not widen the repair beyond the cited target until the causal path is verified."
+        ],
+        "recommended_verification": [
+          "Trace the highest-severity anchors in the built artifact or current source tree.",
+          "Run a focused CENTER-AUDIT or equivalent root-cause review on the cited target.",
+          "Check whether the path is test-only, generated, or configuration-derived noise before editing code."
+        ]
+      },
+      "contradictions": [],
+      "limitations": [
+        "Hypotheses are ranking aids, not confirmed defects.",
+        "false positives expected on purpose-built hubs (barrel files, index.ts)",
+        "severity scale is heuristic; not calibrated against historical defect rates",
+        "single-metric view: anomalies are flagged but the engine cannot tell you WHY the node is unusual",
+        "static analysis only — runtime metrics (call frequency, response time) are not measured"
+      ],
       "targetId": "file:be335e4e2e96bea0",
       "targetKind": "node",
-      "score": 0,
       "maxSeverity": "low",
       "geometries": [
         "anomaly"
@@ -535,5 +1373,6 @@
         "capabilityGapPenalty": 0
       }
     }
-  ]
+  ],
+  "warnings": []
 }

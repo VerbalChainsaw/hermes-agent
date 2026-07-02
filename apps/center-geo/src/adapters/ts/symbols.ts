@@ -190,24 +190,18 @@ function extractClassMembers(
  */
 
 /**
- * Unwrap an ExportNamedDeclaration to its inner declaration, or
- * return null for re-exports (no inner declaration). The wrapper
- * carries the export marker (`exportKind: "value"` / `"type"` /
- * etc.); the inner declaration is what the type-specific extractors
- * know how to handle. Used by `extractSymbols` to route
- * `export function foo()` to the FunctionDeclaration handler.
+ * Unwrap an export declaration to its inner declaration, or return
+ * null for re-exports / export forms with no graph-relevant inner
+ * declaration. Used by `extractSymbols` to route both
+ * `export function foo()` and `export default function foo()` to the
+ * declaration-specific handlers.
  *
- * Returns the inner declaration AND its export marker (if any):
- *   - `null`:        a re-export with no inner declaration (e.g.
- *                     `export { a } from "./b"`). The caller should
- *                     skip — T05's import/export edge extractor
- *                     already handles this case.
- *   - `undefined`:   the input was not an ExportNamedDeclaration;
- *                     the caller should pass the input through
- *                     unchanged. The export flag is false.
- *   - `{ node, exported }`: the inner declaration; `exported` is true
- *                     iff the wrapper had `exportKind: "value"` or
- *                     `"type"` (the AST's marker for an export).
+ * Returns:
+ *   - `null`:        export form has no inner declaration worth routing
+ *                     through symbol extraction (e.g. `export { a }`,
+ *                     `export default expr`).
+ *   - `undefined`:   inner declaration exists but is not a TsNodeLike.
+ *   - `{ node, exported }`: the inner declaration with an export marker.
  */
 type UnwrapResult =
   | { node: TsNodeLike; exported: boolean }
@@ -215,11 +209,15 @@ type UnwrapResult =
   | undefined;
 
 function unwrapExport(node: TsNodeLike): UnwrapResult {
-  if (node.type !== "ExportNamedDeclaration") return undefined;
-  const inner = (node as unknown as { declaration?: unknown; exportKind?: string })
-    .declaration;
+  if (node.type !== "ExportNamedDeclaration" && node.type !== "ExportDefaultDeclaration") {
+    return undefined;
+  }
+  const inner = (node as unknown as { declaration?: unknown; exportKind?: string }).declaration;
   if (inner === null || inner === undefined) return null;
-  if (!isTsNodeLike(inner as TsNodeLike)) return undefined;
+  if (!isTsNodeLike(inner as TsNodeLike)) return null;
+  if (node.type === "ExportDefaultDeclaration") {
+    return { node: inner as TsNodeLike, exported: true };
+  }
   const exportKind = (node as unknown as { exportKind?: string }).exportKind;
   const exported = exportKind === "value" || exportKind === "type";
   return { node: inner as TsNodeLike, exported };
@@ -262,21 +260,15 @@ export function extractSymbols(
   for (const rawStmt of body) {
     if (!isTsNodeLike(rawStmt)) continue;
 
-    // Unwrap ExportNamedDeclaration to its inner declaration. The
-    // ESTree spec for `export function foo()` is:
-    //   ExportNamedDeclaration { declaration: FunctionDeclaration }
-    // and the export marker (exportKind: "value"/"type") is on the
-    // WRAPPER, not the inner declaration. Without this unwrap, the
-    // walker falls through to the "Unhandled" diagnostic and the
-    // symbol is silently dropped. (This also subsumes the historical
-    // T07+ TODO in hasExportKeyword, since the inner declaration
-    // is now the one the type-specific extractors see directly.)
+    // Unwrap export wrappers to their inner declarations. Without this,
+    // `export function foo()` / `export default class Foo {}` fall
+    // through to the unhandled-declaration path and are silently lost.
     let stmt: TsNodeLike;
     let wrapperExported = false;
-    if (rawStmt.type === "ExportNamedDeclaration") {
+    if (rawStmt.type === "ExportNamedDeclaration" || rawStmt.type === "ExportDefaultDeclaration") {
       const unwrapped = unwrapExport(rawStmt);
-      if (unwrapped === null) continue; // re-export (e.g. `export { a } from "./b"`)
-      if (unwrapped === undefined) continue; // not a TsNodeLike after unwrap
+      if (unwrapped === null) continue; // re-export or export-default expression
+      if (unwrapped === undefined) continue; // malformed wrapper shape
       stmt = unwrapped.node;
       wrapperExported = unwrapped.exported;
     } else {
@@ -301,7 +293,7 @@ export function extractSymbols(
         });
         continue;
       }
-      const exported = stmt.declare === true || wrapperExported || hasExportKeyword(stmt);
+      const exported = stmt.declare === true || wrapperExported;
       const funcNode = makeSymbolNode(
         "function",
         filePath,
@@ -328,7 +320,7 @@ export function extractSymbols(
         });
         continue;
       }
-      const exported = wrapperExported || hasExportKeyword(stmt);
+      const exported = wrapperExported;
       const classNode = makeSymbolNode(
         "class",
         filePath,
@@ -366,7 +358,7 @@ export function extractSymbols(
         });
         continue;
       }
-      const exported = wrapperExported || hasExportKeyword(stmt);
+      const exported = wrapperExported;
       const node = makeSymbolNode(
         "interface",
         filePath,
@@ -390,7 +382,7 @@ export function extractSymbols(
         });
         continue;
       }
-      const exported = wrapperExported || hasExportKeyword(stmt);
+      const exported = wrapperExported;
       const node = makeSymbolNode(
         "type",
         filePath,
@@ -414,7 +406,7 @@ export function extractSymbols(
         });
         continue;
       }
-      const exported = wrapperExported || hasExportKeyword(stmt);
+      const exported = wrapperExported;
       // We emit enums as "type" kind (no dedicated enum kind; schema
       // has 13 node kinds and enum is one of the implicit category
       // ones that fits "type"). Future ticket can add a dedicated kind.
@@ -507,17 +499,3 @@ function makeMethodToClassEdge(classNode: GraphNode, methodNode: GraphNode): Gra
   };
 }
 
-/**
- * Heuristic: detect "export" prefix on a statement. The TS-ESLint
- * parser sets `exportKind` on the statement itself for ExportNamedDeclaration
- * wrappers; for inline-export forms we look at a `leadingComments`-like
- * marker. Simplest correct heuristic for now: check parent wrapping.
- */
-function hasExportKeyword(_node: TsNodeLike): boolean {
-  // TODO (T07+): walk up to parent to detect `export function foo()` / `export class Foo`.
-  // For T06, this returns false; the ExportNamedDeclaration handling
-  // in T05 covers the export-re-export case. T06 only needs to know
-  // whether a top-level symbol was EXPORTED for tagging; T07+ will
-  // refine this via parent-walking.
-  return false;
-}

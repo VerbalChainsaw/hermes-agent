@@ -203,6 +203,30 @@ describe("extractSymbols — ExportNamedDeclaration unwrap (T07+ fix)", () => {
     expect(methods[0].symbol).toBe("src/a.ts::Foo.method");
   });
 
+  it("extracts a function from `export default function foo()` and marks it exported", () => {
+    const source = `export default function exportedDefault() { return 1; }`;
+    const r = parseFile("src/a.ts", source);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const funcs = r.nodes.filter((n) => n.kind === "function");
+    expect(funcs).toHaveLength(1);
+    expect(funcs[0].symbol).toBe("src/a.ts::exportedDefault");
+    expect(funcs[0].tags.includes("exported")).toBe(true);
+  });
+
+  it("extracts a class from `export default class Foo {}` and marks it exported", () => {
+    const source = `export default class Foo { method() {} }`;
+    const r = parseFile("src/a.ts", source);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const classes = r.nodes.filter((n) => n.kind === "class");
+    const methods = r.nodes.filter((n) => n.kind === "method");
+    expect(classes).toHaveLength(1);
+    expect(methods).toHaveLength(1);
+    expect(classes[0].symbol).toBe("src/a.ts::Foo");
+    expect(classes[0].tags.includes("exported")).toBe(true);
+  });
+
   it("extracts an interface from `export interface I {}`", () => {
     const source = `export interface I { x: number }`;
     const r = parseFile("src/a.ts", source);

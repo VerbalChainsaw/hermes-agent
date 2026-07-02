@@ -64,6 +64,9 @@ const VOLATILE_JSON_PATHS = new Set([
   // different values; byte-comparing them would always fail.
   "coverage.parse_ms",
   "coverage.graph_build_ms",
+  // Synthetic fixture roots are temporary directories, so the exact
+  // path changes across runs even when the scanned content does not.
+  "scan_frame.root",
 ]);
 
 export async function compareSnapshots(

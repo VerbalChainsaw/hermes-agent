@@ -186,14 +186,37 @@ export interface CoverageStats {
   files_seen: number;
   /** Number of files fully parsed into the graph. */
   files_parsed: number;
+  /** Number of files indexed into the graph snapshot. */
+  files_indexed: number;
+  /** Number of files skipped from indexing (generated/test/non-source/etc.). */
+  files_skipped: number;
   /** Number of files that failed to parse (recorded in warnings). */
   files_failed: number;
+  /** Total graph node count. */
+  nodes_total: number;
+  /** Total graph edge count. */
+  edges_total: number;
+  /** Number of unsupported files encountered during enumeration/indexing. */
+  unsupported_files: number;
+  /** Number of generated files encountered during enumeration/indexing. */
+  generated_files: number;
+  /** Repo-relative paths that failed parsing. */
+  parse_failure_paths: string[];
   /** Number of edges with confidence "unknown" or "low". */
   edges_low_confidence: number;
   /** Total parse time in ms (across all adapters). */
   parse_ms: number;
   /** Total graph build time in ms. */
   graph_build_ms: number;
+}
+
+export interface RevisionInfo {
+  vcs: "git" | "none" | "unknown";
+  commit?: string;
+  branch?: string;
+  dirty?: boolean;
+  baseline_commit?: string;
+  snapshot_hash?: string;
 }
 
 /**
@@ -229,8 +252,10 @@ export interface GraphSnapshot {
   created_at?: string;
   /** Repo root the snapshot was built from (absolute path). */
   root: string;
-  /** Revision (git sha) or timestamp. Optional. */
-  revision?: string;
+  /** Revision metadata or deterministic snapshot hash fallback. */
+  revision: RevisionInfo;
+  /** Deterministic hash of the resolved config used for the scan. */
+  config_hash: string;
   /** Parse coverage summary. */
   coverage: CoverageStats;
   /** All nodes, deduplicated by id. Sorted by id for determinism. */
