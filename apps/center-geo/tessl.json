@@ -1,0 +1,15 @@
+{
+  "name": "center-geo",
+  "mode": "vendored",
+  "dependencies": {
+    "tessl/code-review": {
+      "version": "0.0.1"
+    },
+    "jbvc/security-review": {
+      "version": "0.1.0"
+    },
+    "coding-agent-helpers/regression-scout": {
+      "version": "0.1.2"
+    }
+  }
+}

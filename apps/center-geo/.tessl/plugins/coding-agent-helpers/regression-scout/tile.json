@@ -1,0 +1,11 @@
+{
+  "name": "coding-agent-helpers/regression-scout",
+  "version": "0.1.2",
+  "summary": "Use when a change already appears to work and you need focused regression hunting before calling it done. Map the changed surface, shared code paths, output contracts, config edges, and built artifacts, then run bounded adjacent checks that look for breakage in neighboring flows rather than re-proving the main fix.",
+  "private": false,
+  "skills": {
+    "regression-scout": {
+      "path": "skills/regression-scout/SKILL.md"
+    }
+  }
+}

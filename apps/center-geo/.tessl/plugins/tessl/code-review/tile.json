@@ -1,0 +1,23 @@
+{
+  "name": "tessl/code-review",
+  "version": "0.0.1",
+  "summary": "A suite of focused code-review skills for Tessl Agent and GitHub Actions review workflows (`tessl change review`). Each review lens is its own skill, so a workflow can invoke one lens or several. Fork and tune any skill for your own repository.",
+  "private": false,
+  "skills": {
+    "review-code-legibility": {
+      "path": "skills/review-code-legibility/SKILL.md"
+    },
+    "review-contract-boundaries": {
+      "path": "skills/review-contract-boundaries/SKILL.md"
+    },
+    "review-local-precedent": {
+      "path": "skills/review-local-precedent/SKILL.md"
+    },
+    "review-security-risks": {
+      "path": "skills/review-security-risks/SKILL.md"
+    },
+    "review-test-risk": {
+      "path": "skills/review-test-risk/SKILL.md"
+    }
+  }
+}

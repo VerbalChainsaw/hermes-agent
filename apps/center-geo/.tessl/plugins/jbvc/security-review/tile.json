@@ -1,0 +1,11 @@
+{
+  "name": "jbvc/security-review",
+  "version": "0.1.0",
+  "private": false,
+  "summary": "Use this skill when adding authentication, handling user input, working with secrets, creating API endpoints, or implementing payment/sensitive features. Provides comprehensive security checklist and patterns.",
+  "skills": {
+    "security-review": {
+      "path": "SKILL.md"
+    }
+  }
+}
