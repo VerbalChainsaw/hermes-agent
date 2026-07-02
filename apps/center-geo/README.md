@@ -1,8 +1,8 @@
 # @hermes/center-geo
 
-> **Status: T00–T25 shipped. Engines + fusion + reports + diff + CI all working.** 347 tests passing. Real-CLI verified end-to-end.
+> **Status: T00–T25 shipped. Engines + fusion + reports + diff + CI all working.** 350 tests passing. Real CLI verified end-to-end.
 
-`center-geo` is **CENTER-MULTIGEOMETRY**: a deterministic multi-geometry structural risk scanner for codebases. It is a **companion to [`center-audit`](../../skills/center-audit)**, not a replacement.
+`center-geo` is **CENTER-MULTIGEOMETRY**: a deterministic multi-geometry structural risk scanner for codebases. It is a **companion to the `center-audit` workflow**, not a replacement.
 
 `center-audit` is strong when you already have a specific suspected defect and a center anchor. `center-geo` answers the question that comes *before* you have a center:
 
@@ -14,7 +14,14 @@ It emits **evidence-backed risk hypotheses** with anchors. It does not prove def
 
 ## Quick start
 
+This package lives inside the `hermes-agent` monorepo and is **not published to npm**. To use it, clone the repo and run from `apps/center-geo`.
+
 ```bash
+cd apps/center-geo
+npm install
+npm run build
+npm test
+
 # Run a full scan with all 6 engines + fusion + reports.
 node dist/cli/main.js scan --output-dir ./cg-out .
 
@@ -26,8 +33,8 @@ node dist/cli/main.js diff ./cg-out/main/report.json ./cg-out/pr/report.json
 
 | Subcommand | What it does |
 | ---------- | ------------ |
-| `index <repo>` | Enumerate the repo and emit a graph snapshot (T02). |
-| `scan <repo>`  | Run all 6 engines + fusion + reports. The main entry point. |
+| `index <repo>` | Deterministic enumeration preflight. Today it reports what was enumerated, then exits `INTERNAL` because graph emission is not shipped yet. |
+| `scan <repo>`  | Run all 6 engines + fusion + reports. The main supported entry point. |
 | `diff <base> <head>` | Compare two `report.json` files. Exit 1 if any NEW hypothesis is high-severity. |
 
 ## Engines
@@ -44,8 +51,8 @@ node dist/cli/main.js diff ./cg-out/main/report.json ./cg-out/pr/report.json
 ## Output formats
 
 - **Human (stderr)**: top-N hypotheses by fused score, with score, severity, target, geometries.
-- **JSON (stdout, `--format json`)**: structured FusedScore[] for machine consumption.
-- **File reports (`--output-dir`)**: writes `report.json` (full data), `report.md` (markdown table for PR comments), `report.sarif` (SARIF 2.1.0 for GitHub code scanning).
+- **JSON (stdout, `--format json`)**: structured report envelope with `schema_version`, `scan_frame`, `coverage`, `engine_runs`, `hypotheses`, `signals`, and `warnings`.
+- **File reports (`--output-dir`)**: writes `report.json` (full data), `report.md` (human-readable report), `report.sarif` (SARIF 2.1.0 for GitHub code scanning).
 
 ## Current limitations
 
