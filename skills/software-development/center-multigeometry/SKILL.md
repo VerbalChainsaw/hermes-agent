@@ -1,7 +1,7 @@
 ---
 name: center-multigeometry
 description: "Use for structural risk maps / multi-geometry code scans."
-version: 1.0.0
+version: 1.1.0
 author: Hermes Agent
 license: MIT
 compatibility: "Hermes-compatible coding agents with access to C:/hermes/hermes-agent/apps/center-geo and its built CLI."

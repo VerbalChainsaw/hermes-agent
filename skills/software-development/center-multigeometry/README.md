@@ -27,19 +27,29 @@ This bundle is intentionally self-contained. The SKILL.md body does not depend o
 
 ```bash
 python validate_skill.py
+python validate_skill.py --portable
+python validate_skill.py --local
 python validate_skill.py --selftest
 ```
 
-The selftest builds `apps/center-geo`, runs the built CLI, parses real JSON stdout, verifies `report.json` / `report.md` / `report.sarif`, and checks `diff` stdout-vs-stderr separation.
+Mode meanings:
+- default / `--portable` — validate only the bundle contents and script syntax; does not require `C:/hermes`, `Downloads`, or installed targets to exist
+- `--local` — validate machine-local assumptions: canonical repo, app root, built CLI, spec docs, and installed distribution targets
+- `--selftest` — run portable + local validation, then build `apps/center-geo`, run the built CLI, parse real JSON stdout, validate report structure, verify `report.json` / `report.md` / `report.sarif`, and check `diff` stdout-vs-stderr separation
 
 ## Install
 
 ```bash
 python install_skill.py --dry-run
-python install_skill.py
+python install_skill.py --backup-dir C:/tmp/cmg-skill-backups
 python install_skill.py --root hermes
 python install_skill.py --verify-only
 ```
+
+Installer guardrails:
+- refuses destinations whose basename is not `center-multigeometry`
+- refuses destinations that do not match the known allowed target roots
+- optional `--backup-dir` snapshots an existing target before replacement
 
 ## Distribution targets
 
