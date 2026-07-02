@@ -1,6 +1,6 @@
 # @hermes/center-geo
 
-> **Status: T00–T24 shipped. Engines + fusion + reports + diff + CI all working.** 303 tests passing. Real-CLI verified end-to-end.
+> **Status: T00–T25 shipped. Engines + fusion + reports + diff + CI all working.** 347 tests passing. Real-CLI verified end-to-end.
 
 `center-geo` is **CENTER-MULTIGEOMETRY**: a deterministic multi-geometry structural risk scanner for codebases. It is a **companion to [`center-audit`](../../skills/center-audit)**, not a replacement.
 
@@ -8,14 +8,14 @@
 
 - Where in the codebase are the high-risk structural regions?
 - Which nodes, edges, paths, or boundaries deserve attention?
-- What does the codebase look like under multiple graph traversal geometries — radial, cycle, boundary, anomaly, convergent?
+- What does the codebase look like under multiple graph traversal geometries — radial, cycle, boundary, anomaly, convergent, path?
 
 It emits **evidence-backed risk hypotheses** with anchors. It does not prove defects. Run `center-audit` afterward to prove or disprove a flagged hypothesis.
 
 ## Quick start
 
 ```bash
-# Run a full scan with all 5 engines + fusion + reports.
+# Run a full scan with all 6 engines + fusion + reports.
 node dist/cli/main.js scan --output-dir ./cg-out .
 
 # Compare two reports (e.g. main vs PR).
@@ -27,7 +27,7 @@ node dist/cli/main.js diff ./cg-out/main/report.json ./cg-out/pr/report.json
 | Subcommand | What it does |
 | ---------- | ------------ |
 | `index <repo>` | Enumerate the repo and emit a graph snapshot (T02). |
-| `scan <repo>`  | Run all 5 engines + fusion + reports. The main entry point. |
+| `scan <repo>`  | Run all 6 engines + fusion + reports. The main entry point. |
 | `diff <base> <head>` | Compare two `report.json` files. Exit 1 if any NEW hypothesis is high-severity. |
 
 ## Engines
@@ -39,12 +39,18 @@ node dist/cli/main.js diff ./cg-out/main/report.json ./cg-out/pr/report.json
 | boundary | Edges that cross forbidden boundary tag combinations | T11 |
 | anomaly  | Nodes whose fan-in or fan-out is in the top percentile | T12 |
 | convergent | Nodes reachable from many distinct upstream branches | T13 |
+| path | Bounded entry-to-sink traces with long-path / guard-gap / dynamic-handoff signals | T25 |
 
 ## Output formats
 
 - **Human (stderr)**: top-N hypotheses by fused score, with score, severity, target, geometries.
 - **JSON (stdout, `--format json`)**: structured FusedScore[] for machine consumption.
 - **File reports (`--output-dir`)**: writes `report.json` (full data), `report.md` (markdown table for PR comments), `report.sarif` (SARIF 2.1.0 for GitHub code scanning).
+
+## Current limitations
+
+- Path tracing is structural/static. A `path.long_path` signal means the graph contains a bounded route, not that runtime execution is proven.
+- When traversal reaches an `unknown_dynamic` edge — or an allowed edge whose target node was never emitted into the graph — the engine degrades to `path.unknown_dynamic_handoff` instead of pretending the sink was reached.
 
 ## Exit codes (FR10)
 
@@ -63,9 +69,8 @@ See `docs/ci-integration.md` for examples. Sample workflow in `.github/workflows
 
 ## Performance
 
-- **1000-file TypeScript monorepo:** scan completes in **~1.7s** end-to-end (15 engines + fusion + 3 reports).
-- **10k-file target:** well under the docs/01 NFR3 30-second budget.
-- All algorithms are pure functions on the immutable `GraphStore`; the package is parallelizable for future TBD tickets.
+- Synthetic 1000-file fixture coverage lives in `test/fixtures.test.ts`.
+- All engines are pure functions on the immutable `GraphStore`; the package remains parallelizable for future tickets.
 
 ## Architecture
 
@@ -79,6 +84,7 @@ src/
     boundary/       T11: forbidden-crossing detection
     anomaly/        T12: fan-out/fan-in percentile
     convergent/     T13: distinct upstream branch count
+    path/           T25: bounded entry-to-sink path tracing
   scoring/          T14: fuseSignals() — 8-bonus formula
   output/           T15: formatHuman / formatJson
   reports/          T17-T19: writeJsonReport / writeMarkdownReport / writeSarifReport
@@ -90,7 +96,7 @@ Every engine is a pure function: `(GraphStore, EngineConfig) -> Signal[]`. All e
 
 ## Configuration
 
-Default config is a no-op (no boundaries defined, all engines enabled with sensible defaults). To override, drop a `.center-geo.yml` next to your `package.json` and pass `--config <path>` to the scan. See `examples/center-geometry.config.yaml` (in the requirements package) for the full schema, or `.center-geo.yml` in this directory for a starter.
+Default config ships boundary tags for `ui`, `api`, and `persistence`, and enables all six engines with sensible defaults. The path engine can match entry/sink tags by boundary globs or boundary symbol selectors. For custom YAML, pass `--config <path>` to `scan`; the schema lives in `src/config/types.ts` and the default values live in `src/config/default.ts`.
 
 ## Schema versions
 

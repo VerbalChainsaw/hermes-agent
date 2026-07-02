@@ -85,6 +85,16 @@ export const DEFAULT_CONFIG: Config = {
       max_depth: 4,
       min_shared_sinks: 3,
     },
+    path: {
+      enabled: true,
+      max_depth: 8,
+      path_count_cap: 25,
+      long_path_min_length: 4,
+      entry_tags: ["ui", "api"],
+      sink_tags: ["persistence"],
+      guard_tags: ["api"],
+      allowed_edge_kinds: ["call", "import", "unknown_dynamic"],
+    },
   },
   scoring: {
     geometry_bonus_per_extra_geometry: 0.5,

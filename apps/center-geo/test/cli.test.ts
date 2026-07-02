@@ -180,6 +180,129 @@ describe("package metadata", () => {
   });
 });
 
+describe("center-geo CLI — T25 path proof", () => {
+  it("emits a path hypothesis from symbol-tagged entry/sink config on the built artifact", async () => {
+    const fs = await import("node:fs/promises");
+    const os = await import("node:os");
+    const path = await import("node:path");
+
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "center-geo-path-cli-"));
+    try {
+      await fs.mkdir(path.join(root, "src", "api"), { recursive: true });
+      await fs.writeFile(
+        path.join(root, "src", "api", "flow.ts"),
+        [
+          "function sink() {",
+          "  return 1;",
+          "}",
+          "function mid() {",
+          "  return sink();",
+          "}",
+          "export function entry() {",
+          "  return mid();",
+          "}",
+          "",
+        ].join("\n"),
+        "utf8",
+      );
+      const configPath = path.join(root, "config.yaml");
+      await fs.writeFile(
+        configPath,
+        [
+          "include:",
+          "  - 'src/**/*.{ts,tsx,js,jsx}'",
+          "exclude:",
+          "  - '**/node_modules/**'",
+          "engines:",
+          "  radial: { enabled: true }",
+          "  cycle: { enabled: true }",
+          "  boundary: { enabled: true }",
+          "  anomaly: { enabled: true }",
+          "  convergent: { enabled: true }",
+          "  path:",
+          "    enabled: true",
+          "    allowed_edge_kinds: ['call']",
+          "    entry_tags: ['entry']",
+          "    sink_tags: ['sink']",
+          "    long_path_min_length: 2",
+          "    path_count_cap: 10",
+          "    max_depth: 10",
+          "scoring:",
+          "  geometry_bonus_per_extra_geometry: 0.5",
+          "  independence_bonus_per_extra_independent_method: 0.75",
+          "  boundary_bonus: 1.0",
+          "  state_bonus: 1.0",
+          "  cycle_bonus: 0.75",
+          "  test_gap_bonus: 0.5",
+          "  contradiction_penalty: 1.5",
+          "  capability_gap_penalty: 1.0",
+          "report:",
+          "  top_n_hypotheses: 20",
+          "  redact: true",
+          "boundaries:",
+          "  tags:",
+          "    entry:",
+          "      symbols: ['src/api/flow.ts::entry']",
+          "    sink:",
+          "      symbols: ['src/api/flow.ts::sink']",
+          "  forbidden_crossings: []",
+          "",
+        ].join("\n"),
+        "utf8",
+      );
+
+      const r = runCli(["scan", "--format", "json", "--config", configPath, root]);
+      expect([ExitCode.OK, ExitCode.THRESHOLD]).toContain(r.status);
+      const report = JSON.parse(r.stdout) as {
+        hypotheses: Array<{
+          geometries?: string[];
+          contributors?: Array<{ type?: string }>;
+        }>;
+      };
+      const pathHypothesis = report.hypotheses.find(
+        (hypothesis) => Array.isArray(hypothesis.geometries) && hypothesis.geometries.includes("path"),
+      );
+      expect(pathHypothesis).toBeTruthy();
+      expect(pathHypothesis?.contributors?.some((contributor) => contributor.type === "long_path")).toBe(true);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("center-geo CLI — diff contract", () => {
+  it("diff stdout stays parseable JSON with the decision line routed to stderr", async () => {
+    const fs = await import("node:fs/promises");
+    const os = await import("node:os");
+    const path = await import("node:path");
+    const f = await (await import("./fixtures/synthetic.js")).createFixture("small");
+    const outA = await fs.mkdtemp(path.join(os.tmpdir(), "center-geo-diff-a-"));
+    const outB = await fs.mkdtemp(path.join(os.tmpdir(), "center-geo-diff-b-"));
+    try {
+      const scanA = runCli(["scan", "--output-dir", outA, f.root]);
+      const scanB = runCli(["scan", "--output-dir", outB, f.root]);
+      expect([ExitCode.OK, ExitCode.THRESHOLD]).toContain(scanA.status);
+      expect([ExitCode.OK, ExitCode.THRESHOLD]).toContain(scanB.status);
+
+      const diff = runCli(["diff", path.join(outA, "report.json"), path.join(outB, "report.json")]);
+      expect(diff.status).toBe(ExitCode.OK);
+      const parsed = JSON.parse(diff.stdout) as {
+        new_hypotheses: unknown[];
+        resolved_hypotheses: unknown[];
+        changed_hypotheses: unknown[];
+      };
+      expect(Array.isArray(parsed.new_hypotheses)).toBe(true);
+      expect(Array.isArray(parsed.resolved_hypotheses)).toBe(true);
+      expect(Array.isArray(parsed.changed_hypotheses)).toBe(true);
+      expect(diff.stderr).toMatch(/# decision: ok/i);
+    } finally {
+      await fs.rm(outA, { recursive: true, force: true });
+      await fs.rm(outB, { recursive: true, force: true });
+      await f.cleanup();
+    }
+  });
+});
+
 
 describe("center-geo CLI — coverage (DeepSeek Critical #1)", () => {
   it("coverage.files_parsed correctly counts successful parses, not graph nodes", async () => {

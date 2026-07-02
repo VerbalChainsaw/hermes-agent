@@ -30,7 +30,7 @@
  * resolution is out of scope for the MVP.
  */
 
-import { makeEdgeId, type AnchorSignature } from "../../graph/ids.js";
+import { makeEdgeId, makeNodeId, type AnchorSignature } from "../../graph/ids.js";
 import type {
   Confidence,
   GraphEdge,
@@ -115,7 +115,7 @@ export function buildSymbolIndex(filePath: string, ast: unknown): SymbolIndex {
 
     if (stmt.type === "FunctionDeclaration") {
       const name = (stmt as unknown as { id?: { name?: string } }).id?.name;
-      if (name) byName.set(name, `function:${filePath}::${name}`);
+      if (name) byName.set(name, makeNodeId("function", filePath, `${filePath}::${name}`));
     }
     if (stmt.type === "ImportDeclaration") {
       const source = (stmt as { source?: { value?: string } }).source?.value;
@@ -240,11 +240,11 @@ function walkClassBody(
 /* ── helpers ───────────────────────────────────────────────────── */
 
 function methodNodeIdFor(filePath: string, className: string, methodName: string): string {
-  return `method:${filePath}::${className}.${methodName}`;
+  return makeNodeId("method", filePath, `${filePath}::${className}.${methodName}`);
 }
 
 function byNameIdForFunction(filePath: string, name: string): string {
-  return `function:${filePath}::${name}`;
+  return makeNodeId("function", filePath, `${filePath}::${name}`);
 }
 
 /**

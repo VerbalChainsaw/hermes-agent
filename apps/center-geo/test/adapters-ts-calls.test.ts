@@ -38,10 +38,28 @@ describe("extractCalls — local function calls", () => {
     expect(calls[0].kind).toBe("call");
     expect(calls[0].confidence).toBe("high");
     // Resolves to a function symbol id.
-    expect(calls[0].to).toContain("helper");
     expect(calls[0].to).toContain("function:");
     // From should be the caller function.
-    expect(calls[0].from).toContain("main");
+    expect(calls[0].from).toContain("function:");
+  });
+
+  it("uses the emitted symbol node ids for local caller/callee edges", () => {
+    const r = parseFile("src/a.ts", `
+      function helper(x: number) { return x; }
+      export function main() {
+        return helper(42);
+      }
+    `);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const calls = callEdges(r);
+    expect(calls).toHaveLength(1);
+    const helperNode = r.nodes.find((node) => node.kind === "function" && node.symbol?.endsWith("::helper"));
+    const mainNode = r.nodes.find((node) => node.kind === "function" && node.symbol?.endsWith("::main"));
+    expect(helperNode).toBeTruthy();
+    expect(mainNode).toBeTruthy();
+    expect(calls[0].to).toBe(helperNode?.id);
+    expect(calls[0].from).toBe(mainNode?.id);
   });
 
   it("emits multiple edges for multiple call sites in one function", () => {
@@ -157,8 +175,10 @@ describe("extractCalls — class method bodies", () => {
     if (!r.ok) return;
     const calls = callEdges(r);
     expect(calls.length).toBe(1);
+    const methodNode = r.nodes.find((node) => node.kind === "method" && node.symbol?.endsWith("::Foo.bar"));
+    expect(methodNode).toBeTruthy();
     // Caller is the method, not the class.
-    expect(calls[0].from).toContain("Foo.bar");
+    expect(calls[0].from).toBe(methodNode?.id);
     expect(calls[0].from).toContain("method:");
   });
 });

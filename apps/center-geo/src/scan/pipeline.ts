@@ -41,6 +41,7 @@ import { runCycleEngine } from "../engines/cycle/index.js";
 import { runBoundaryEngine } from "../engines/boundary/index.js";
 import { runAnomalyEngine } from "../engines/anomaly/index.js";
 import { runConvergentEngine } from "../engines/convergent/index.js";
+import { runPathEngine } from "../engines/path/index.js";
 import { fuseSignals } from "../scoring/fuse.js";
 import type { FusedScore } from "../scoring/types.js";
 import type { Signal } from "../engines/radial/signals.js";
@@ -90,7 +91,7 @@ export interface RunScanResult {
   parseMs: number;
   /** Wall-clock ms spent in the engines. */
   engineMs: number;
-  /** Raw signals from the 5 engines (T09-T13). */
+  /** Raw signals from the engines (T09-T13 + T25 path). */
   signals: Signal[];
   /** Fused hypotheses. */
   fused: FusedScore[];
@@ -272,7 +273,7 @@ export async function runScanPipeline(
     warnings: [],
   });
 
-  // 4. Run all 5 engines (T09-T13). Each is pure: (GraphStore, EngineConfig)
+  // 4. Run all engines (T09-T13 + T25 path). Each is pure: (GraphStore, EngineConfig)
   // -> Signal[]. We pass the per-engine config slice. Missing slices
   // default to the engine-specific defaults (handled inside each
   // runXxxEngine — the EngineConfig type's index signature covers
@@ -285,9 +286,21 @@ export async function runScanPipeline(
   const cycleCfg: EngineConfig = inputs.config.engines.cycle ?? {};
   const anomalyCfg: EngineConfig = inputs.config.engines.anomaly ?? {};
   const convergentCfg: EngineConfig = inputs.config.engines.convergent ?? {};
+  const pathCfg: EngineConfig = inputs.config.engines.path ?? {};
   const allowedEdgeKinds = cycleCfg.allowed_edge_kinds;
+  const pathTagSelectors = {
+    ...Object.fromEntries(
+      Object.entries(inputs.config.boundaries?.tags ?? {}).map(([name, tag]) => [
+        name,
+        { globs: tag.globs ?? [], symbols: tag.symbols ?? [] },
+      ]),
+    ),
+    ...Object.fromEntries(
+      Object.entries(inputs.config.sinks ?? {}).map(([name, sink]) => [name, { globs: sink.globs }]),
+    ),
+  };
 
-  // Run all 5 engines and concatenate their signals. We use .flat()
+  // Run all engines and concatenate their signals. We use .flat()
   // rather than spread for readability (DeepSeek Nit #1).
   const signals: Signal[] = [
     runRadialEngine(store, radialCfg, fileNodeIds, boundaryTagNames),
@@ -310,6 +323,9 @@ export async function runScanPipeline(
       convergentCfg as Parameters<typeof runConvergentEngine>[1],
       { allowedEdgeKinds },
     ),
+    runPathEngine(store, pathCfg as Parameters<typeof runPathEngine>[1], {
+      tagSelectors: pathTagSelectors,
+    }),
   ].flat();
   const engineMs = Date.now() - engineStartMs;
 

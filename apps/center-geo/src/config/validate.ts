@@ -15,6 +15,7 @@
 import type {
   BoundaryCrossing,
   Config,
+  EngineConfig,
   EnginesConfig,
   PathPattern,
 } from "./types.js";
@@ -139,7 +140,7 @@ function requireGlob(key: string, value: string, errors: ValidationError[]): boo
 
 /* ── engine validation ──────────────────────────────────────────── */
 
-const ENGINE_IDS = ["radial", "cycle", "boundary", "anomaly", "convergent"] as const;
+const ENGINE_IDS = ["radial", "cycle", "boundary", "anomaly", "convergent", "path"] as const;
 type EngineId = (typeof ENGINE_IDS)[number];
 
 /** All 12 EdgeKind values — used to narrow user-supplied strings. */
@@ -203,7 +204,7 @@ function validateEngineConfig(
   name: EngineId,
   raw: unknown,
   errors: ValidationError[],
-): { enabled: boolean; max_depth?: number; max_nodes?: number; allowed_edge_kinds?: readonly import("../graph/types.js").EdgeKind[] } | null {
+): EngineConfig | null {
   // Undefined: user omitted this engine. Fall back to DEFAULT_CONFIG.<name>
   // (which has enabled: true and sensible per-engine knobs).
   if (raw === undefined) {
@@ -220,6 +221,12 @@ function validateEngineConfig(
   const max_depth = expectNumber(raw, "max_depth", false, errors);
   const max_nodes = expectNumber(raw, "max_nodes", false, errors);
   const allowed_edge_kinds = expectEdgeKindArray(raw, "allowed_edge_kinds", false, errors);
+  const entry_tags = name === "path" ? expectStringArray(raw, "entry_tags", false, errors) : null;
+  const sink_tags = name === "path" ? expectStringArray(raw, "sink_tags", false, errors) : null;
+  const guard_tags = name === "path" ? expectStringArray(raw, "guard_tags", false, errors) : null;
+  const path_count_cap = name === "path" ? expectNumber(raw, "path_count_cap", false, errors) : null;
+  const long_path_min_length =
+    name === "path" ? expectNumber(raw, "long_path_min_length", false, errors) : null;
 
   if (max_depth !== null && (max_depth < 0 || !Number.isInteger(max_depth))) {
     errors.push({ path: `engines.${name}.max_depth`, message: "must be a non-negative integer" });
@@ -227,8 +234,32 @@ function validateEngineConfig(
   if (max_nodes !== null && (max_nodes < 0 || !Number.isInteger(max_nodes))) {
     errors.push({ path: `engines.${name}.max_nodes`, message: "must be a non-negative integer" });
   }
+  if (name === "path" && path_count_cap !== null && (path_count_cap < 1 || !Number.isInteger(path_count_cap))) {
+    errors.push({ path: "engines.path.path_count_cap", message: "must be a positive integer" });
+  }
+  if (
+    name === "path" &&
+    long_path_min_length !== null &&
+    (long_path_min_length < 1 || !Number.isInteger(long_path_min_length))
+  ) {
+    errors.push({ path: "engines.path.long_path_min_length", message: "must be a positive integer" });
+  }
   if (enabled === null) return null;
-  return { enabled, max_depth: max_depth ?? undefined, max_nodes: max_nodes ?? undefined, allowed_edge_kinds: allowed_edge_kinds ?? undefined };
+  return {
+    enabled,
+    max_depth: max_depth ?? undefined,
+    max_nodes: max_nodes ?? undefined,
+    allowed_edge_kinds: allowed_edge_kinds ?? undefined,
+    ...(name === "path"
+      ? {
+          entry_tags: entry_tags ?? undefined,
+          sink_tags: sink_tags ?? undefined,
+          guard_tags: guard_tags ?? undefined,
+          path_count_cap: path_count_cap ?? undefined,
+          long_path_min_length: long_path_min_length ?? undefined,
+        }
+      : {}),
+  };
 }
 
 function validateEngines(raw: unknown, errors: ValidationError[]): EnginesConfig | null {
@@ -248,7 +279,7 @@ function validateEngines(raw: unknown, errors: ValidationError[]): EnginesConfig
     const v = validateEngineConfig(id, raw[id], errors);
     if (v) result[id] = v as EnginesConfig[typeof id];
   }
-  // All 5 engine slots must be filled (either user-provided or
+  // All engine slots must be filled (either user-provided or
   // default). If any are missing, we have a bug — engine IDs are
   // hard-coded so the loop always produces one entry.
   if (Object.keys(result).length !== ENGINE_IDS.length) return null;

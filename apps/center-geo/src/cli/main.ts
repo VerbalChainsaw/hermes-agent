@@ -360,7 +360,10 @@ export function main(argv: string[] = process.argv): number {
       // as INTERNAL=5 so CI gates fail loud, not silent.
       try {
         const decision = diffExitCode(d);
-        process.stdout.write(
+        // Keep stdout machine-parseable JSON only. The human-readable
+        // decision line goes to stderr so CI / scripts can `JSON.parse`
+        // stdout without stripping trailers.
+        process.stderr.write(
           `# decision: ${decision.regression ? "regression" : "ok"} — ${decision.reason}\n`,
         );
         process.exit(decision.regression ? ExitCode.THRESHOLD : ExitCode.OK);
@@ -371,7 +374,9 @@ export function main(argv: string[] = process.argv): number {
         }
         throw err;
       }
+
     });
+
 
   // `program.parse(argv)` (synchronous variant). Async action handlers
     // in T05-T09 call process.exit() directly; that propagates to the

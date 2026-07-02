@@ -44,8 +44,8 @@ export interface BoundariesConfig {
 }
 
 /**
- * One geometry engine's per-engine config. The MVP engines are radial,
- * cycle, boundary, anomaly, convergent — see docs/01 §FR6. T08-T09 will
+ * One geometry engine's per-engine config. The shipped engines are radial,
+ * cycle, boundary, anomaly, convergent, path — see docs/01 §FR6. T08-T09 will
  * define the schema per engine; this interface is the common shell.
  */
 export interface EngineConfig {
@@ -76,6 +76,7 @@ export interface EnginesConfig {
   boundary: EngineConfig;
   anomaly: EngineConfig;
   convergent: EngineConfig;
+  path: EngineConfig;
 }
 
 export interface ScoringConfig {

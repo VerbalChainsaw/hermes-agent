@@ -67,7 +67,7 @@ export interface Signal {
   /** Stable id: `s:<kind>:<target>:<16-hex-sha256>`. */
   id: string;
   /** Which engine produced this signal (e.g. "radial"). */
-  geometryId: "radial" | "cycle" | "boundary" | "anomaly" | "convergent";
+  geometryId: "radial" | "cycle" | "boundary" | "anomaly" | "convergent" | "path";
   /** Engine-specific signal type. */
   type: SignalType;
   /** What the signal points at. */

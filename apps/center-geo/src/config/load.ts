@@ -164,6 +164,7 @@ function mergeEngines(user: Config["engines"]): Config["engines"] {
     boundary: { ...def.boundary, ...user.boundary },
     anomaly: { ...def.anomaly, ...user.anomaly },
     convergent: { ...def.convergent, ...user.convergent },
+    path: { ...def.path, ...user.path },
   };
 }
 
